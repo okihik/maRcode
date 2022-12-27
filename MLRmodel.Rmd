@@ -1,0 +1,1548 @@
+---
+title: "Stat Methods for MA Thesis"
+author: "Akihiko Mori"
+date: "10/1/2022"
+output: html_document
+---
+
+# Library
+```{r library, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+#install.packages("googlesheets4") 
+library(googlesheets4) # google sheets
+library(ggplot2) # ggplot
+library(ggspectra)
+library(photobiology)
+library(ggfortify)
+library(forecast)
+library(tseries)
+library(dplyr)
+library(lubridate)
+library(car)
+library(ggcorrplot)
+library(dplyr)
+library(broom)
+library(MASS) # boxcox transformation
+library(patchwork)
+
+# Library for linear regression model
+library(forecast)
+library(ggplot2)
+library(dplyr)
+library(broom)
+library(ggpubr)
+
+# Load library for state space model
+library(rstan)
+library(bayesplot)
+library(gridExtra)
+library(brms)
+
+# Computation faster
+rstan_options(auto_write = TRUE)
+options(mc.cores = parallel::detectCores())
+
+# Import SSM plot function
+source("plotSSM.R", encoding="utf-8")
+source("isValidSheet.R", encoding="utf-8")
+source("ggplotCorr.R", encoding="utf-8")
+```
+
+# Data Retrieval and Preprocessing
+```{r data_import}
+# Retrieve data from Google sheet ----------------------------------------------
+sheet <- read_sheet(
+"https://docs.google.com/spreadsheets/d/1K7VRu80v6qy1qhHgJqL9MrtPOsLaZbtBiMPRwuxgf9c/edit#gid=0",
+col_names = TRUE,
+col_types = "Dldddiiiididdddiiiid",
+range = "sh1!A1:T115"
+)
+```
+
+```{r na.omit_sheet}
+# remove unobserved data -------------------------------------------------------
+sheet <- na.omit(sheet)
+```
+
+
+```{r data_check}
+################################################################################
+# Check for sheet existence
+# Check if isClose is 0 or 1
+# Check for Date
+# Check for negative values for measurements or observations
+# Check if weather conditions (temperature) is between -50 to 50
+# Check if weather conditions (humiditiy) is between 0 to 100
+# Check if precipitation has negative value
+################################################################################
+## Check sheet reasonable inputs -----------------------------------------------
+isValidSheet(sheet)
+```
+
+
+```{r data_preprocessing}
+## remove apparatus weights
+# Create vectors for food loss and waste observations --------------------------
+foodLossKg <- allWasteKg <- liquidWasteKg <- solidWasteKg <- numeric()
+
+# Bucket weight for food loss is 1 kg
+for (val in sheet$fl)
+foodLossKg <- c(foodLossKg, ifelse(val == 0, val, val - 1))
+
+# All food waste: Bucket and strainer weight is 1 kg + 0.3 kg
+for (val in sheet$slfw) 
+allWasteKg <- c(allWasteKg, ifelse(val == 0, val, val - 1.3))
+
+# Liquid: Bucket and strainer weight is 1 kg + 0.3 kg
+for (val in sheet$lfw) 
+liquidWasteKg <- c(liquidWasteKg, ifelse(val == 0, val, val - 1.3))
+
+# Solid := all - liquid food waste
+solidWasteKg <- allWasteKg - liquidWasteKg
+
+
+# Number of observations and closed day at the restaurant ----------------------
+open_days <- sum(!sheet$isClose)
+close_days <- sum(sheet$isClose)
+obs_days <- open_days + close_days
+
+
+# Anomalies on weather condition variables: X - X_bar --------------------------
+anomTempC <- as.numeric(sheet$hrTM - mean(sheet$hrTM))
+anomPrecipMM <- as.numeric(sheet$precip - mean(sheet$precip))
+
+# Data Frame -------------------------------------------------------------------
+df <- data.frame(
+# Obs. date and the restaurant close or not
+date = as.Date(sheet$date[1:obs_days]),
+isClose = as.logical(sheet$isClose),
+# food loss and waste at the restaurant
+foodLossKg = foodLossKg,
+allWasteKg = allWasteKg,
+liquidWasteKg = liquidWasteKg,
+solidWasteKg = solidWasteKg,
+# types of orders
+regularOrders = as.numeric(sheet$orders),
+miniOrders = as.numeric(sheet$miniOrders),
+takeouts = as.numeric(sheet$takeouts),
+# 
+customer = as.numeric(sheet$customers),
+liquors = as.numeric(sheet$liquors),
+sales = as.numeric(sheet$sales),
+# weather conditions
+tempC = as.numeric(sheet$hrTM),
+humidityPerc = as.numeric(sheet$hrHM),
+precipMM = as.numeric(sheet$precip),
+anomTempC = anomTempC,
+anomPrecipMM = anomPrecipMM
+)
+```
+
+```{r week_preprocessing}
+# Dummy Variable for week of day -----------------------------------------------
+# create new vector for each week of day 
+week_day <- wday(df$date, label = TRUE)
+week_day <- factor(week_day, 
+levels = c("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"), 
+ordered = TRUE)
+week_day <- as.factor(week_day)
+# Assign 1; otherwise 0
+tue <- wed <- thur <- fri <- sat <- sun <- numeric(length = obs_days)
+tue <- ifelse(week_day == "Tue", 1, 0)
+wed <- ifelse(week_day == "Wed", 1, 0)
+thu <- ifelse(week_day == "Thu", 1, 0)
+fri <- ifelse(week_day == "Fri", 1, 0)
+sat <- ifelse(week_day == "Sat", 1, 0)
+sun <- ifelse(week_day == "Sun", 1, 0)
+# Combine each week of day vector
+wkMat <- cbind(tue, wed, thu, fri, sat, sun)
+
+# Distinguish between weekday (Tue, Wed, Thu) and weekend (Fri, Sat, Sun) ------
+# Assign 1 if Tuesdays, Wednesdays, and Thursdays; otherwise -1
+week_day_end <- numeric(obs_days)
+week_day_end <- ifelse(week_day == "Tue" | 
+week_day == "Wed" |
+week_day == "Thu", 1, -1) 
+# Final data set ---------------------------------------------------------------
+dt <- cbind(df, week_day, wkMat, week_day_end)
+```
+
+```{r data_descriptive}
+# This data frame for descriptive plots ----------------------------------------
+# Distinguish between liquid food waste and solid food waste
+# Assign "Liquid" and "Solid" as factor
+dt_sl <- data.frame(waste = c(df$liquidWasteKg, df$solidWasteKg),
+form = c(rep("Liquid", obs_days), rep("Solid", obs_days)),
+week = c(rep(week_day,2)),
+tempC = c(rep(df$tempC,2)),
+humi = c(rep(df$humidityPerc,2)),
+prec = c(rep(df$precipMM,2)),
+cust = c(rep(df$customer,2)),
+liqr = c(rep(df$liquors,2)),
+sales = c(rep(df$sales,2)))
+```
+
+
+
+# Univariable Basic Summary
+```{r basic_summary_waste}
+# basic summary ----------------------------------------------------------------
+data.frame(food_waste_all = c(summary(dt$allWasteKg)),
+food_waste_liquid = c(summary(dt$liquidWasteKg)),
+food_waste_solid = c(summary(dt$solidWasteKg)))
+# basic summary for restaurant open --------------------------------------------
+data.frame(food_waste_all = c(summary(dt$allWasteKg[!dt$isClose])),
+food_waste_liquid = c(summary(dt$liquidWasteKg[!dt$isClose])),
+food_waste_solid = c(summary(dt$solidWasteKg[!dt$isClose])))
+```
+
+
+# Univariable Basic plots
+```{r tsPlot}
+# Time Series Plot on all, liquid, and solid food waste ------------------------
+tsPlot <- ggplot() +
+geom_line(data = dt, aes(x = date, y = allWasteKg), 
+color="black") +
+geom_line(data = dt, aes(x = date, y = liquidWasteKg), 
+color="blue", linetype = "dashed") +
+geom_line(data = dt, aes(x = date, y = solidWasteKg), 
+color="red", linetype = "dotted") +
+geom_point() +
+xlab("Date") +
+ylab("Daily Food Waste (kg)") +
+ggtitle("Daily Food Waste Trend")
+tsPlot
+```
+
+```{r X_tsPlot_customer}
+# # Time Series Plot on all, liquid, and solid food waste
+# tsPlot <- ggplot() +
+# geom_line(data = dt, aes(x = date, y = func_zero(allWasteKg,customer)), 
+# color="black") +
+# geom_line(data = dt, aes(x = date, y = func_zero(liquidWasteKg,customer)), 
+# color="blue", linetype = "dashed") +
+# geom_line(data = dt, aes(x = date, y = func_zero(solidWasteKg,customer)), 
+# color="red", linetype = "dotted") +
+# geom_point() +
+# xlab("Date") +
+# ylab("Daily Food Waste per Customer (kg/person)") +
+# ggtitle("Daily Food Waste Trend per Customer")
+# tsPlot
+```
+
+
+```{r histogram_all}
+# Histogram on all food waste --------------------------------------------------
+hist_allWasteKg <- 
+ggplot(data = dt, aes(x = allWasteKg)) +
+geom_histogram(aes(y = ..density..), 
+bins = 30, colour = 1, fill = "white") +
+geom_density(size = 1.5, colour = 4, fill = 4, alpha = 0.25) +
+labs(title = "Daily Food Waste - Histogram and Kernel Density Estimation")
+hist_allWasteKg
+```
+```{r X_histogram_all}
+# # Log transformed Histogram
+# hist_log_allWasteKg <- ggplot(data = dt, aes(x = log(allWasteKg))) +
+# geom_histogram(aes(y = ..density..), colour = 1, fill = "white") +
+# labs(title = "Liogged Daily Food Waste - Histogram")
+# hist_log_allWasteKg
+# 
+# kernel_hist_log_allWasteKg <- hist_log_allWasteKg +
+# geom_density(data = dt, 
+# mapping = aes(x = log(allWasteKg)), 
+# size = 1.5, colour = 4, fill = 4, alpha = 0.25) +
+# labs(title = "Logged Daily Food Waste - Histogram and Kernel Density Estimation")
+# kernel_hist_log_allWasteKg
+
+# # All Food Waste per Person transformed Histogram
+# hist_allWasteKg_cus <- ggplot(data = dt, aes(x = allWasteKg/customer)) +
+# geom_histogram(aes(y = ..density..), colour = 1, fill = "white") +
+# labs(title = "Daily Food Waste per Customer - Histogram")
+# hist_allWasteKg_cus
+# 
+# kernel_hist_allWasteKg_cus <- hist_allWasteKg_cus +
+# geom_density(data = dt, 
+# mapping = aes(x = allWasteKg/customer), 
+# size = 1.5, colour = 4, fill = 4, alpha = 0.25) +
+# labs(title = "Daily Food Waste per Customer - Histogram and Kernel Density Estimation")
+# kernel_hist_allWasteKg_cus
+```
+
+```{r histogram_liquid}
+# Histogram of liquid waste ----------------------------------------------------
+hist_liquidWasteKg <- 
+ggplot(data = dt, aes(x = liquidWasteKg)) +
+geom_histogram(aes(y = ..density..), bins = 30,
+colour = 1, fill = "orange") +
+geom_density(size = 1.5, colour = 4, fill = 4, alpha = 0.25) +
+labs(title = "Daily Liquid Food Waste - Histogram and Kernel Density Estimation")
+hist_liquidWasteKg
+```
+
+```{r X_histogram_liquid}
+# # Log transformed Histogram
+# hist_log_liquid_waste <- ggplot(data = dt, aes(x = log(liquidWasteKg))) +
+# geom_histogram(aes(y = ..density..), colour = 1, fill = "orange", bins = 30) +
+# labs(title = "Logged Daily Liquid Food Waste - Histogram")
+# hist_log_liquid_waste
+# 
+# kernel_hist_log_liquid_waste <- hist_log_liquid_waste +
+# geom_density(data = dt, 
+# mapping = aes(x = log(liquidWasteKg)), 
+# size = 1.5, colour = 4, fill = 4, alpha = 0.25) +
+# labs(title = "Logged Daily Liquid Food Waste - Histogram and Kernel Density Estimation")
+# kernel_hist_log_liquid_waste
+# 
+# # Liquid Food Waste per Person transformed Histogram
+# hist_liquidWasteKg_cus <- ggplot(data = dt, aes(x = liquidWasteKg/customer)) +
+# geom_histogram(aes(y = ..density..), colour = 1, fill = "white") +
+# labs(title = "Daily Liquid Food Waste per Customer - Histogram")
+# hist_liquidWasteKg_cus
+# 
+# kernel_hist_liquidWasteKg_cus <- hist_liquidWasteKg_cus +
+# geom_density(data = dt, 
+# mapping = aes(x = liquidWasteKg/customer), 
+# size = 1.5, colour = 4, fill = 4, alpha = 0.25) +
+# labs(title = "Daily Liquid Food Waste per Customer - Histogram and Kernel Density Estimation")
+# kernel_hist_liquidWasteKg_cus
+```
+
+
+```{r histogram_solid}
+# Histogram of solid waste -----------------------------------------------------
+hist_solidWasteKg <- 
+ggplot(data = dt, aes(x = solidWasteKg)) +
+geom_histogram(aes(y = ..density..), bins = 30,
+colour = 1, fill = "blue") +
+geom_density(data = dt, mapping = aes(x = solidWasteKg), 
+size = 1.5, colour = 4, fill = 4, alpha = 0.25) +
+labs(title = "Daily Solid Food Waste - Histogram and Kernel Density Estimation")
+hist_solidWasteKg
+```
+
+```{r X_histogram_solid}
+# Log transformed Histogram =======
+# hist_log_solid_waste <- ggplot(data = dt, aes(x = log(solidWasteKg))) +
+# geom_histogram(aes(y = ..density..), colour = 1, fill = "blue",bins = 30) +
+# labs(title = "Logged Daily Solid Food Waste - Histogram")
+# hist_log_solid_waste
+# 
+# kernel_hist_log_solid_waste <- hist_log_solid_waste +
+# geom_density(data = dt, 
+# mapping = aes(x = log(solidWasteKg)), 
+# size = 1.5, colour = 4, fill = 4, alpha = 0.25) +
+# labs(title = "Logged Daily Solid Food Waste - Histogram and Kernel Density Estimation")
+# kernel_hist_log_solid_waste
+# 
+# # Solid Food Waste per Person transformed Histogram
+# hist_solidWasteKg_cus <- ggplot(data = dt, aes(x = solidWasteKg/customer)) +
+# geom_histogram(aes(y = ..density..), colour = 1, fill = "white") +
+# labs(title = "Daily Solid Food Waste per Customer - Histogram")
+# hist_solidWasteKg_cus
+# 
+# kernel_hist_solidWasteKg_cus <- hist_solidWasteKg_cus +
+# geom_density(data = dt, 
+# mapping = aes(x = solidWasteKg/customer), 
+# size = 1.5, colour = 4, fill = 4, alpha = 0.25) +
+# labs(title = "Daily Solid Food Waste per Customer - Histogram and Kernel Density Estimation")
+# kernel_hist_solidWasteKg_cus
+```
+
+
+# Bivariable Basic Plots
+```{r boxplot_week_all}
+# boxplot of week of day for all food waste ------------------------------------
+boxplot_week_all <- 
+ggplot(data = dt, aes(x=week_day, y=allWasteKg)) + 
+geom_boxplot(outlier.shape=8, outlier.size=4) +
+stat_summary(fun=mean, geom="point", shape=16, size=3) +
+labs(title = "Boxplot of Daily Food Waste per Week of Day",
+x = "Week of Day", y = "Food Waste in kg")
+boxplot_week_all
+
+# boxplot of week of day for solid and liquid food waste -----------------------
+boxplot_week_sl <- 
+ggplot(data = dt_sl, aes(x=week, y=waste, fill=form)) + 
+geom_boxplot(outlier.shape=8, outlier.size=4) +
+stat_summary(fun=mean, geom="point", shape=16, size=3) +
+labs(title = "Boxplot of Daily Solid and Liquid Food Waste per Week of Day",
+x = "Week of Day", y = "Solid and Liquid Food Waste in kg")
+boxplot_week_sl
+
+# densities of week of day for solid and liquid food waste ---------------------
+density_week_sl <- 
+ggplot(data = dt_sl) + 
+geom_density(aes(x=waste, fill=form), alpha = 0.4) +
+facet_grid(week ~.) +
+labs(title = "Density plot of Daily Solid and Liquid Food Waste per Week of Day",
+x = "Food Waste in Kg", y = "Density")
+density_week_sl
+```
+
+```{r X_boxplot_week_all}
+# boxplot of week of day for all food waste per customer -----------------------
+# boxplot_week_all_cus <- ggplot(data = dt, aes(x=week_day, 
+# y=func_zero(allWasteKg,customer))) + 
+# geom_boxplot(outlier.shape=8, outlier.size=4) +
+# stat_summary(fun=mean, geom="point", shape=16, size=3) +
+# labs(title = "Boxplot of Daily Food Waste per Customer per Week of Day",
+# x = "Week of Day", y = "Food Waste in kg")
+# boxplot_week_all_cus
+
+# # boxplot of week of day for solid and liquid food waste per customer
+# boxplot_week_sl_cus <- ggplot(data = dt_sl, aes(x=week, 
+# y=func_zero(waste,cust), fill=form)) + 
+# geom_boxplot(outlier.shape=8, outlier.size=4) +
+# stat_summary(fun=mean, geom="point", shape=16, size=3) +
+# labs(title = "Boxplot of Daily Solid and Liquid Food Waste per Customer per Week of Day",
+# x = "Week of Day", y = "Solid and Liquid Food Waste per Customer in kg")
+# boxplot_week_sl_cus
+```
+
+```{r density_scatter_waste_temp}
+# Scatter and Densities plot of food waste and temperature ---------------------
+scatter_plot_waste <-
+ggplot(data=dt,aes(x=tempC, y=allWasteKg)) +
+geom_point(size = 2) +
+geom_point(shape = 1, color = "black", size = 2) +
+geom_smooth(method="lm", formula = y ~ x, fullrange=TRUE) +
+geom_rug() +
+scale_y_continuous(name = "Daily Food Waste (kg)",
+limits = c(0, 7), expand = c(0, 0)) +
+scale_x_continuous(name = "Daily Temperature (Degree Celsius)",
+limits = c(-40, 15), expand = c(0, 0)) +
+theme_pubr() +
+theme(legend.position = c(0.15, 0.9))
+#scatter_plot_waste
+
+dens_temp <-
+ggplot(dt, aes(x = tempC)) +
+geom_density(color="black", fill="grey") +
+scale_fill_grey() +
+theme_void() +
+theme(legend.position = "none")
+#dens_temp
+
+dens_waste <-
+ggplot(dt, aes(x = allWasteKg), fill = "dark") +
+geom_density(color="black", fill="grey") +
+theme_void() +
+theme(legend.position = "none") +
+coord_flip()
+#dens_waste
+
+dens_temp +
+labs(title = "Scatter and Kernel Densities of Food Waste with Temperature (°C)") +
+plot_spacer() + # library(patchwork)
+scatter_plot_waste + dens_waste +
+plot_layout(ncol = 2, nrow = 2, widths = c(4, 1), heights = c(1, 4))
+
+# density and scatter plot of food waste and temperature -----------------------
+scatter_plot_waste_temp_sl <-
+ggplot(data=dt_sl,aes(x=tempC, y=waste, shape=form, color=form)) +
+geom_point(aes(color = form), size = 2) +
+geom_point(shape = 1, color = "black", size = 2) +
+geom_smooth(method="lm", formula = y~x, fullrange=TRUE) +
+geom_rug() +
+scale_y_continuous(name = "Daily Food Waste (kg)",
+limits = c(0, 5), expand = c(0, 0)) +
+scale_x_continuous(name = "Daily Temperature (Degree Celsius)",
+limits = c(-40, 15), expand = c(0, 0)) +
+theme_pubr() +
+theme(legend.position = c(0.15, 0.9))
+#scatter_plot_waste_temp_sl
+
+dens_temp <-
+ggplot(dt_sl, aes(x = tempC, fill = form)) +
+geom_density(alpha = 0.4) +
+theme_void() +
+theme(legend.position = "none")
+#dens_temp
+
+dens_waste <-
+ggplot(dt_sl, aes(x = waste, fill = form)) +
+geom_density(alpha = 0.4) +
+theme_void() +
+theme(legend.position = "none") +
+coord_flip()
+#dens_waste
+
+dens_temp +
+labs(title = "Scatter and Kernel Densities of Food Waste with Temperature (°C)") +
+plot_spacer() + # library(patchwork)
+scatter_plot_waste_temp_sl + dens_waste +
+plot_layout(ncol = 2, nrow = 2, widths = c(4, 1), heights = c(1, 4))
+
+
+# scatter plot between food waste and weather conditions: temp -----------------
+# scatter_waste_temp <- 
+# ggplot(data = dt, aes(x=tempC, y=allWasteKg)) +
+# geom_point(size=2, shape=16) +
+# geom_smooth(method = lm, formula = y~x) +
+# labs(title = "Scatter Plot of Daily Food Waste (kg) with Temperature (°C)",
+# x = "Degree Celsius", y = "Daily Food Waste in kg")
+# scatter_waste_temp
+
+# scatter plot between food waste and weather conditions: temp
+# scatter_sl_waste_temp <- 
+# ggplot(data = dt_sl, aes(x=tempC, y=waste, shape=form, color=form)) +
+# geom_point() +
+# geom_smooth(method = lm, formula = y~x) +
+# labs(title = "Scatter Plot of Daily Food Waste (kg) with Temperature (°C)",
+# x = "Degree Celsius", y = "Daily Food Waste in kg")
+# scatter_sl_waste_temp
+
+# # scatter plot between food waste /customer and weather conditions: temp
+# scatter_waste_customer_temp <- 
+# ggplot(data = dt, aes(x=tempC, 
+# y=func_zero(allWasteKg,customer))) +
+# geom_point(size=2, shape=16) +
+# labs(title = "Scatter Plot of Daily Food Waste per Customer with Temperature (°C)",
+# x = "Degree Celsius", y = "Daily Food Waste per Customer (kg/person)")
+# scatter_waste_customer_temp
+
+# # scatter plot between food waste per customer and weather conditions: temp
+# scatter_sl_waste_customer_temp <- 
+# ggplot(data = dt_sl, aes(x=tempC, y=func_zero(waste,cust), shape=form, color=form)) +
+# geom_point() +
+# geom_smooth(method=lm) +
+# labs(title = "Scatter Plot of Daily Food Waste per Customer with Temperature (°C)",
+# x = "Degree Celsius", y = "Daily Food Waste per Customer (kg/person)")
+# scatter_sl_waste_customer_temp
+```
+
+
+```{r scatter_waste_humidity}
+# Scatter and Densities plot of food waste and humidity ------------------------
+scatter_plot_waste_humidity <-
+ggplot(data=dt,aes(x=humidityPerc, y=allWasteKg)) +
+geom_point(size = 2) +
+geom_point(shape = 1, color = "black", size = 2) +
+geom_smooth(method="lm", formula = y ~ x, fullrange=TRUE) +
+geom_rug() +
+scale_y_continuous(name = "Daily Food Waste (kg)",
+limits = c(0, 7), expand = c(0, 0)) +
+scale_x_continuous(name = "Daily Humidity (%)",
+limits = c(50, 100), expand = c(0, 0)) +
+theme_pubr() +
+theme(legend.position = c(0.15, 0.9))
+#scatter_plot_waste_humidity
+
+dens_humidity <-
+ggplot(dt, aes(x = humidityPerc)) +
+geom_density(color="black", fill="grey") +
+scale_fill_grey() +
+theme_void() +
+theme(legend.position = "none")
+#dens_temp
+
+dens_waste <-
+ggplot(dt, aes(x = allWasteKg), fill = "dark") +
+geom_density(color="black", fill="grey") +
+theme_void() +
+theme(legend.position = "none") +
+coord_flip()
+#dens_waste
+
+dens_humidity +
+labs(title = "Scatter and Kernel Densities of Food Waste and Humidity (%)") +
+plot_spacer() + # library(patchwork)
+scatter_plot_waste_humidity + dens_waste +
+plot_layout(ncol = 2, nrow = 2, widths = c(4, 1), heights = c(1, 4))
+
+# density and scatter plot of food waste and humidity --------------------------
+scatter_plot_waste_humi_sl <-
+ggplot(data=dt_sl,aes(x=humi, y=waste, shape=form, color=form)) +
+geom_point(aes(color = form), size = 2) +
+geom_point(shape = 1, color = "black", size = 2) +
+geom_smooth(method="lm", formula = y~x, fullrange=TRUE) +
+geom_rug() +
+scale_y_continuous(name = "Daily Food Waste (kg)",
+limits = c(0, 5), expand = c(0, 0)) +
+scale_x_continuous(name = "Daily Humidity (%)",
+limits = c(50, 100), expand = c(0, 0)) +
+theme_pubr() +
+theme(legend.position = c(0.15, 0.9))
+#scatter_plot_waste_humi_sl
+
+dens_humidity <-
+ggplot(dt_sl, aes(x = humi, fill = form)) +
+geom_density(alpha = 0.4) +
+theme_void() +
+theme(legend.position = "none")
+#dens_humidity
+
+dens_waste <-
+ggplot(dt_sl, aes(x = waste, fill = form)) +
+geom_density(alpha = 0.4) +
+theme_void() +
+theme(legend.position = "none") +
+coord_flip()
+#dens_waste
+
+dens_humidity +
+labs(title = "Scatter and Kernel Densities of Food Waste and Humidity (%)") +
+plot_spacer() + # library(patchwork)
+scatter_plot_waste_humi_sl + dens_waste +
+plot_layout(ncol = 2, nrow = 2, widths = c(4, 1), heights = c(1, 4))
+
+# ------------------------------------------------------------------------------
+# scatter plot between food waste and weather conditions: humidity
+# scatter_waste_humidity <- ggplot(data = dt, aes(x=humidityPerc, y=allWasteKg)) +
+# geom_point(size=2, shape=16) +
+# geom_smooth(method = lm, formula = y~x) +
+# labs(title = "Scatter Plot of Daily Food Waste (kg) with Humidity (%)",
+# x = "Daily Relative Humidity (%)", y = "Daily Food Waste in kg")
+# scatter_waste_humidity
+# 
+# # scatter plot between food waste and weather conditions: temp
+# scatter_sl_waste_temp <- ggplot(data = dt_sl, 
+# aes(x=humi, y=waste, shape=form, color=form)) +
+# geom_point() +
+# geom_smooth(method=lm, formula = y~x) +
+# labs(title = "Scatter Plot of Daily Food Waste (kg) with Humidity (C)",
+# x = "Daily Relative Humidity (%)", y = "Daily Food Waste in kg")
+# scatter_sl_waste_temp
+
+# # scatter plot between food waste per customer and weather conditions: humidity
+# scatter_waste_customer_humidity <- ggplot(data = dt, 
+# aes(x=humidityPerc, y=allWasteKg/customer)) +
+# geom_point(size=2, shape=16) +
+# labs(title = "Scatter Plot of Daily Food Waste per Customer with Humidity",
+# x = "Daily Relative Humidity (%)", y = "Daily Food Waste per Customer (kg/person)")
+# scatter_waste_customer_humidity
+
+# # scatter plot between food waste per customer and weather conditions: temp
+# scatter_sl_waste_temp <- ggplot(data = dt_sl, 
+# aes(x=humi, y=waste/cust, shape=form, color=form)) +
+# geom_point() +
+# geom_smooth(method=lm) +
+# labs(title = "Scatter Plot of Daily Food Waste per Customer with Humidity",
+# x = "Daily Relative Humidity (%)", y = "Daily Food Waste per Customer (kg/person)")
+# scatter_sl_waste_temp
+```
+
+```{r scatter_waste_precip}
+# Scatter and Densities plot of food waste and humidity ------------------------
+scatter_plot_waste_precip <-
+ggplot(data=dt,aes(x=precipMM, y=allWasteKg)) +
+geom_point(size = 2) +
+geom_point(shape = 1, color = "black", size = 2) +
+geom_smooth(method="lm", formula = y ~ x, fullrange=TRUE) +
+geom_rug() +
+scale_y_continuous(name = "Daily Food Waste (kg)",
+limits = c(0, 7), expand = c(0.05, 0)) +
+scale_x_continuous(name = "Daily Precipitation (mm)",
+limits = c(0, 15), expand = c(0.05, 0)) +
+theme_pubr() +
+theme(legend.position = c(0.15, 0.9))
+#scatter_plot_waste_precip
+
+dens_precip <-
+ggplot(dt, aes(x = precipMM)) +
+geom_density(color="black", fill="grey") +
+scale_fill_grey() +
+theme_void() +
+theme(legend.position = "none")
+#dens_precip
+
+dens_waste <-
+ggplot(dt, aes(x = allWasteKg), fill = "dark") +
+geom_density(color="black", fill="grey") +
+theme_void() +
+theme(legend.position = "none") +
+coord_flip()
+#dens_waste
+
+dens_precip +
+labs(title = "Scatter and Kernel Densities of Food Waste and Precipitation (mm)") +
+plot_spacer() + # library(patchwork)
+scatter_plot_waste_precip + dens_waste +
+plot_layout(ncol = 2, nrow = 2, widths = c(4, 1), heights = c(1, 4))
+
+
+# density and scatter plot of food waste and humidity --------------------------
+scatter_plot_waste_precip_sl <-
+ggplot(data=dt_sl,aes(x=prec, y=waste, shape=form, color=form)) +
+geom_point(aes(color = form), size = 2) +
+geom_point(shape = 1, color = "black", size = 2) +
+geom_smooth(method="lm", formula = y~x, fullrange=TRUE) +
+geom_rug() +
+scale_y_continuous(name = "Daily Food Waste (kg)",
+limits = c(0, 5), expand = c(0.1, 0)) +
+scale_x_continuous(name = "Daily Precipitation (mm)",
+limits = c(0, 15), expand = c(0.1, 0)) +
+theme_pubr() +
+theme(legend.position = c(0.85, 0.9))
+#scatter_plot_waste_precip_sl
+
+dens_precip <-
+ggplot(dt_sl, aes(x = prec, fill=form)) +
+geom_density(alpha = 0.4) +
+theme_void() +
+theme(legend.position = "none")
+#dens_precip
+
+dens_waste <-
+ggplot(dt_sl, aes(x = waste, fill = form)) +
+geom_density(alpha = 0.4) +
+theme_void() +
+theme(legend.position = "none") +
+coord_flip()
+#dens_waste
+
+dens_precip +
+labs(title = "Scatter and Kernel Densities of Food Waste and Precipitation (mm)") +
+plot_spacer() + # library(patchwork)
+scatter_plot_waste_precip_sl + dens_waste +
+plot_layout(ncol = 2, nrow = 2, widths = c(4, 1), heights = c(1, 4))
+
+# ------------------------------------------------------------------------------
+# scatter plot between food waste and weather conditions: Precipitation in mm
+# scatter_waste_precip <- ggplot(data = dt, aes(x=precipMM, y=allWasteKg)) +
+# geom_point(size=2, shape=16) +
+# geom_smooth(method=lm, formula = y ~ x) +
+# labs(title = "Scatter Plot of Daily Food Waste (kg) with Precipitation (mm)",
+# x = "Daily Precipitation in mm", y = "Daily Food Waste in kg")
+# scatter_waste_precip
+
+# scatter plot between food waste and weather conditions: temp
+# scatter_sl_waste_precip <- ggplot(data = dt_sl, aes(x=prec, y=waste, shape=form, color=form)) +
+# geom_point() +
+# geom_smooth(method=lm, formula = y ~ x) +
+# labs(title = "Scatter Plot of Daily Food Waste (kg) with Precipitation (mm)",
+# x = "Daily Precipitation in mm", y = "Daily Food Waste in kg")
+# scatter_sl_waste_precip
+
+# # scatter plot between food waste per Customer and weather conditions: Precipitation in mm
+# scatter_waste_customer_precip <- ggplot(data = dt, aes(x=precipMM, y=allWasteKg/customer)) +
+# geom_point(size=2, shape=16) +
+# labs(title = "Scatter Plot of Daily Food Waste per Customer with Precipitation",
+# x = "Daily Precipitation (mm)", y = "Daily Food Waste per Customer (kg/person)")
+# scatter_waste_customer_precip
+
+# # scatter plot between food waste per Customer and weather conditions: temp
+# scatter_sl_waste_cust_precip <- ggplot(data = dt_sl, 
+# aes(x=prec, y=waste/cust, shape=form, color=form)) +
+# geom_point() +
+# geom_smooth(method=lm) +
+# labs(title = "Scatter Plot of Daily Food Waste per Customer with Precipitation",
+# x = "Daily Precipitation (mm)", y = "Daily Food Waste per Customer (kg/person)")
+# scatter_sl_waste_cust_precip
+```
+
+```{r scatter_waste_customers}
+# Scatter and Densities plot of food waste and customers -----------------------
+scatter_plot_waste_customers <-
+ggplot(data=dt,aes(x=customer, y=allWasteKg)) +
+geom_point(size = 2) +
+geom_point(shape = 1, color = "black", size = 2) +
+geom_smooth(method="lm", formula = y ~ x - 1, fullrange=TRUE) +
+geom_rug() +
+scale_y_continuous(name = "Daily Food Waste (kg)",
+limits = c(0, 7), expand = c(0.05, 0)) +
+scale_x_continuous(name = "Daily Number of Customers",
+limits = c(0, 50), expand = c(0.05, 0)) +
+theme_pubr() +
+theme(legend.position = c(0.15, 0.9))
+#scatter_plot_waste_customers
+
+dens_customer <-
+ggplot(dt, aes(x = customer)) +
+geom_density(color="black", fill="grey") +
+scale_fill_grey() +
+theme_void() +
+theme(legend.position = "none")
+#dens_customer
+
+dens_waste <-
+ggplot(dt, aes(x = allWasteKg), fill = "dark") +
+geom_density(color="black", fill="grey") +
+theme_void() +
+theme(legend.position = "none") +
+coord_flip()
+#dens_waste
+
+dens_customer +
+labs(title = "Scatter and Kernel Densities of Food Waste and Numebr of Customers") +
+plot_spacer() + # library(patchwork)
+scatter_plot_waste_customers + dens_waste +
+plot_layout(ncol = 2, nrow = 2, widths = c(4, 1), heights = c(1, 4))
+
+
+# density and scatter plot of food waste and humidity --------------------------
+scatter_plot_waste_cust_sl <-
+ggplot(data=dt_sl,aes(x=cust, y=waste, shape=form, color=form)) +
+geom_point(aes(color = form), size = 2) +
+geom_point(shape = 1, color = "black", size = 2) +
+geom_smooth(method="lm", formula = y~x-1, fullrange=TRUE) +
+geom_rug() +
+scale_y_continuous(name = "Daily Food Waste (kg)",
+limits = c(0, 5), expand = c(0.05, 0)) +
+scale_x_continuous(name = "Daily Number of Customers",
+limits = c(0, 50), expand = c(0.05, 0)) +
+theme_pubr() +
+theme(legend.position = c(0.15, 0.9))
+#scatter_plot_waste_cust_sl
+
+dens_cust <-
+ggplot(dt_sl, aes(x = cust, fill = form)) +
+geom_density(alpha = 0.4) +
+theme_void() +
+theme(legend.position = "none")
+#dens_cust
+
+dens_waste <-
+ggplot(dt_sl, aes(x = waste, fill = form)) +
+geom_density(alpha = 0.4) +
+theme_void() +
+theme(legend.position = "none") +
+coord_flip()
+#dens_waste
+
+dens_cust +
+labs(title = "Scatter and Kernel Densities of Food Waste and Number of Customers") +
+plot_spacer() + # library(patchwork)
+scatter_plot_waste_cust_sl + dens_waste +
+plot_layout(ncol = 2, nrow = 2, widths = c(4, 1), heights = c(1, 4))
+
+
+# ------------------------------------------------------------------------------
+# scatter plot between food waste and customer
+# scatter_waste_cust <- ggplot(data = dt, aes(x=customer, y=allWasteKg)) +
+# geom_point(size=2, shape=16) +
+# geom_smooth(method=lm, formula = y ~ x - 1) +
+# labs(title = "Scatter Plot of Daily Food Waste (kg) with Number of Customer",
+# x = "Daily Number of Customer", y = "Daily Food Waste in kg")
+# scatter_waste_cust
+
+# scatter plot between food waste and weather conditions: temp
+# scatter_sl_waste_cust <- ggplot(data = dt_sl, aes(x=cust, y=waste, shape=form, color=form)) +
+# geom_point() +
+# geom_smooth(method=lm, formula = y ~ x - 1) +
+# labs(title = "Scatter Plot of Daily Food Waste (kg) with Number of Customer",
+# x = "Daily Number of Customer", y = "Daily Food Waste in kg")
+# scatter_sl_waste_cust
+```
+
+```{r scatter_waste_liquor}
+# Scatter and Densities plot of food waste and Liquor --------------------------
+scatter_plot_waste_liquor <-
+ggplot(data=dt,aes(x=liquors, y=allWasteKg)) +
+geom_point(size = 2) +
+geom_point(shape = 1, color = "black", size = 2) +
+geom_smooth(method="lm", formula = y ~ x, fullrange=TRUE) +
+geom_rug() +
+scale_y_continuous(name = "Daily Food Waste (kg)",
+limits = c(0, 7), expand = c(0.05, 0)) +
+scale_x_continuous(name = "Daily Number of Liquor Sales",
+limits = c(0, 7), expand = c(0.05, 0)) +
+theme_pubr() +
+theme(legend.position = c(0.15, 0.9))
+#scatter_plot_waste_liquor
+
+dens_liquor <-
+ggplot(dt, aes(x = liquors)) +
+geom_density(color="black", fill="grey") +
+scale_fill_grey() +
+theme_void() +
+theme(legend.position = "none")
+#dens_liquor
+
+dens_waste <-
+ggplot(dt, aes(x = allWasteKg), fill = "dark") +
+geom_density(color="black", fill="grey") +
+theme_void() +
+theme(legend.position = "none") +
+coord_flip()
+#dens_waste
+
+dens_liquor +
+labs(title = "Scatter and Kernel Densities of Food Waste and Liquor Sales") +
+plot_spacer() + # library(patchwork)
+scatter_plot_waste_liquor + dens_waste +
+plot_layout(ncol = 2, nrow = 2, widths = c(4, 1), heights = c(1, 4))
+
+
+# density and scatter plot of food waste and humidity --------------------------
+scatter_plot_waste_liqr_sl <-
+ggplot(data=dt_sl,aes(x=liqr, y=waste, shape=form, color=form)) +
+geom_point(aes(color = form), size = 2) +
+geom_point(shape = 1, color = "black", size = 2) +
+geom_smooth(method="lm", formula = y~x, fullrange=TRUE) +
+geom_rug() +
+scale_y_continuous(name = "Daily Food Waste (kg)",
+limits = c(0, 5), expand = c(0.05, 0)) +
+scale_x_continuous(name = "Daily Number of Customers",
+limits = c(0, 7), expand = c(0.05, 0)) +
+theme_pubr() +
+theme(legend.position = c(0.15, 0.9))
+#scatter_plot_waste_liqr_sl
+
+dens_liqr <-
+ggplot(dt_sl, aes(x = liqr, fill = form)) +
+geom_density(alpha = 0.4) +
+theme_void() +
+theme(legend.position = "none")
+#dens_liqr
+
+dens_waste <-
+ggplot(dt_sl, aes(x = waste, fill = form)) +
+geom_density(alpha = 0.4) +
+theme_void() +
+theme(legend.position = "none") +
+coord_flip()
+#dens_waste
+
+dens_liqr +
+labs(title = "Scatter and Kernel Densities of Food Waste and Number of Liquor Sales") +
+plot_spacer() + # library(patchwork)
+scatter_plot_waste_liqr_sl + dens_waste +
+plot_layout(ncol = 2, nrow = 2, widths = c(4, 1), heights = c(1, 4))
+
+# ------------------------------------------------------------------------------
+# scatter plot between food waste and liquor
+# scatter_waste_liquor <- ggplot(data = dt, aes(x=liquors, y=allWasteKg)) +
+# geom_point(size=2, shape=16) +
+# labs(title = "Scatter Plot of Daily Food Waste (kg) with Liquor",
+# x = "Daily Liquor", y = "Daily Food Waste in kg")
+# scatter_waste_liquor
+
+# scatter plot between food waste per customer and liquor
+# scatter_waste_customer_liquor <- ggplot(data = dt, aes(x=liquors, y=allWasteKg/customer)) +
+# geom_point(size=2, shape=16) +
+# labs(title = "Scatter Plot of Daily Food Waste per Customer with Liquor Sale",
+# x = "Daily Liquor Sale", y = "Daily Food Waste per Customer (kg/person)")
+# scatter_waste_customer_liquor
+
+# scatter plot between food waste and weather conditions: temp
+# scatter_sl_waste_liquor <- ggplot(data = dt_sl, aes(x=liqr, y=waste, shape=form, color=form)) +
+# geom_point() +
+# geom_smooth(method=lm) +
+# labs(title = "Scatter Plot of Daily Food Waste (kg) with Liquor",
+# x = "Daily Liquor", y = "Daily Food Waste in kg")
+# scatter_sl_waste_liquor
+
+# scatter plot between food waste per customer and weather conditions: temp
+# scatter_sl_waste_customer_liquor <- ggplot(data = dt_sl, 
+# aes(x=liqr, y=waste/cust, shape=form, color=form)) +
+# geom_point() +
+# geom_smooth(method=lm) +
+# labs(title = "Scatter Plot of Daily Food Waste per Customer with Liquor Sale",
+# x = "Daily Liquor Sale", y = "Daily Food Waste per Customer (kg/person)")
+# scatter_sl_waste_customer_liquor
+```
+
+## Check whether 0 sales are included?
+## Formula including intercept or not?
+```{r scatter_waste_sales}
+# Scatter and Densities plot of food waste and Sales ---------------------------
+scatter_plot_waste_sales <-
+ggplot(data=dt,aes(x=sales, y=allWasteKg)) +
+geom_point(size = 2) +
+geom_point(shape = 1, color = "black", size = 2) +
+geom_smooth(method="lm", formula = y ~ x - 1, fullrange=TRUE) +
+geom_rug() +
+scale_y_continuous(name = "Daily Food Waste (kg)",
+limits = c(0, 7), expand = c(0.05, 0)) +
+scale_x_continuous(name = "Daily Sales (CAD)",
+limits = c(0, 1300), expand = c(0.05, 0)) +
+theme_pubr() +
+theme(legend.position = c(0.15, 0.9))
+#scatter_plot_waste_sales
+
+dens_sales <-
+ggplot(dt, aes(x = sales)) +
+geom_density(color="black", fill="grey") +
+scale_fill_grey() +
+theme_void() +
+theme(legend.position = "none")
+#dens_sales
+
+dens_waste <-
+ggplot(dt, aes(x = allWasteKg), fill = "dark") +
+geom_density(color="black", fill="grey") +
+theme_void() +
+theme(legend.position = "none") +
+coord_flip()
+#dens_waste
+
+dens_sales +
+labs(title = "Scatter and Kernel Densities of Food Waste and Sales") +
+plot_spacer() + # library(patchwork)
+scatter_plot_waste_sales + dens_waste +
+plot_layout(ncol = 2, nrow = 2, widths = c(4, 1), heights = c(1, 4))
+
+
+# density and scatter plot of food waste and humidity --------------------------
+scatter_plot_waste_sales_sl <-
+ggplot(data=dt_sl,aes(x=sales, y=waste, shape=form, color=form)) +
+geom_point(aes(color = form), size = 2) +
+geom_point(shape = 1, color = "black", size = 2) +
+geom_smooth(method="lm", formula = y~x-1, fullrange=TRUE) +
+geom_rug() +
+scale_y_continuous(name = "Daily Food Waste (kg)",
+limits = c(0, 5), expand = c(0.05, 0)) +
+scale_x_continuous(name = "Daily Sales (CAD)",
+limits = c(0, 1300), expand = c(0.05, 0)) +
+theme_pubr() +
+theme(legend.position = c(0.15, 0.9))
+#scatter_plot_waste_sales_sl
+
+dens_sales <-
+ggplot(dt_sl, aes(x = sales, fill = form)) +
+geom_density(alpha = 0.4) +
+theme_void() +
+theme(legend.position = "none")
+#dens_liqr
+
+dens_waste <-
+ggplot(dt_sl, aes(x = waste, fill = form)) +
+geom_density(alpha = 0.4) +
+theme_void() +
+theme(legend.position = "none") +
+coord_flip()
+#dens_waste
+
+dens_sales +
+labs(title = "Scatter and Kernel Densities of Food Waste and Sales") +
+plot_spacer() + # library(patchwork)
+scatter_plot_waste_sales_sl + dens_waste +
+plot_layout(ncol = 2, nrow = 2, widths = c(4, 1), heights = c(1, 4))
+
+# ------------------------------------------------------------------------------
+# scatter plot between food waste and sales
+# scatter_waste_sales <- ggplot(data = dt, aes(x=sales, y=allWasteKg)) +
+# geom_point(size=2, shape=16) +
+# labs(title = "Scatter Plot of Daily Food Waste (kg) with Daily Sales",
+# x = "Daily Sales in Dollar", y = "Daily Food Waste in kg")
+# scatter_waste_sales
+
+# scatter plot between food waste per customer and sales
+# scatter_waste_customer_sales <- ggplot(data = dt, aes(x=sales, y=allWasteKg/customer)) +
+# geom_point(size=2, shape=16) +
+# labs(title = "Scatter Plot of Daily Food Waste per Customer with Daily Sales",
+# x = "Daily Sales in Dollar", y = "Daily Food Waste per Customer (kg/person)")
+# scatter_waste_customer_sales
+
+# scatter plot between food waste and weather conditions: temp
+# scatter_sl_waste_sales <- ggplot(data = dt_sl, aes(x=sales, y=waste, shape=form, color=form)) +
+# geom_point() +
+# geom_smooth(method=lm) +
+# labs(title = "Scatter Plot of Daily Food Waste (kg) with Daily Sales",
+# x = "Daily Sales in Dollar", y = "Daily Food Waste in kg")
+# scatter_sl_waste_sales
+
+# scatter plot between food waste per customer and weather conditions: temp
+# scatter_sl_waste_sales <- ggplot(data = dt_sl, 
+# aes(x=sales, y=func_zero(waste,cust), shape=form, color=form)) +
+# geom_point() +
+# geom_smooth(method=lm) +
+# labs(title = "Scatter Plot of Daily Food Waste per Customer with Daily Sales",
+# x = "Daily Sales in Dollar", y = "Daily Food Waste per Customer (kg/person)")
+# scatter_sl_waste_sales
+```
+
+```{r function_zero}
+func_zero <- function(x,y){
+output <- x/y
+output[is.na(output)] <- 0
+return(output)
+}
+
+```
+
+
+# Correlation b/w Exp. vars.
+```{r correlation_pval}
+# correlation between independent variables ------------------------------------
+corr <- round(cor(dt[c(11:12,16:18)]),2)
+corr
+# correlation p-values ---------------------------------------------------------
+corr_pValues <- round(cor_pmat(dt[c(11:12,16:18)]),4)
+corr_pValues
+```
+
+```{r correlation_matrix}
+# ---------------------------------------------
+ggcorrplot(corr, hc.order = TRUE, type = "lower", 
+lab = TRUE)
+# Barring the no significant coefficient ======
+ggcorrplot(corr, hc.order = TRUE, type = "lower", 
+p.mat = corr_pValues)
+# Leave blank on no significant coefficient ------------------------------------
+ggcorrplot(corr, p.mat = corr_pValues, hc.order = TRUE,
+type = "lower", insig = "blank")
+```
+
+
+
+# ACF and PACF
+```{r acf_pacf_all}
+# acf and pacf for all food waste ----------------------------------------------
+ggAcf(as.ts(dt$allWasteKg))
+ggPacf(as.ts(dt$allWasteKg))
+
+#ggAcf(as.ts(func_zero(dt$allWasteKg,dt$customer)))
+#ggPacf(as.ts(func_zero(dt$allWasteKg,dt$customer)))
+```
+
+# Suitable Model
+```{r unit_root_test_all}
+# Phillips-Perron Test ---------------------------------------------------------
+# Model: diff(y_t) = (1-r)*y_{t-1} + e_t
+# Null: r = 1 -> Stationary Process 
+# Alt: otherwise -> Not Stationary Process
+PP.test(dt$allWasteKg)
+# -> pval = 0.01 => likely not unit root process
+
+# Augmented Dickey–Fuller Test -------------------------------------------------
+# Model: diff(y_t) = a + bt + r*y_{t-1} + c*diff(y_{t-1}) + ... + e_t
+# Null: r = 0 -> Stationary Process 
+# Alt: r < 0 -> Not Stationary Process
+adf.test(dt$allWasteKg)
+
+# Augmented Dickey–Fuller Test -------------------------------------------------
+# Model: diff(y_t) = a + bt + r*y_{t-1} + c*diff(y_{t-1}) + ... + e_t
+# Null: r = 0 -> Stationary Process 
+# Alt: r > 0 -> Not Stationary Process
+adf.test(dt$allWasteKg, alternative = "explosive")
+```
+
+
+```{r cointegration_test}
+# Phillips–Ouliaris cointegration test -----------------------------------------
+
+
+```
+
+
+```{r DW_test}
+
+```
+
+
+# Spectral Analysis
+```{r spec_all}
+# ------------------------------------------------------------------------------
+plot.spectrum(dt$allWasteKg)
+raw.spec <- list(spec.pgram(dt$allWasteKg, spans = 5))
+1/raw.spec[[1]]$freq[which.max(raw.spec[[1]]$spec)]
+```
+
+```{r acf_pacf_liq_sol}
+# acf and pacf for liquid food waste -------------------------------------------
+ggAcf(as.ts(dt$liquidWasteKg))
+ggPacf(as.ts(dt$liquidWasteKg))
+# acf and pacf for solid food waste --------------------------------------------
+ggAcf(as.ts(dt$solidWasteKg))
+ggPacf(as.ts(dt$solidWasteKg))
+
+# stationary test for liquid ---------------------------------------------------
+PP.test(dt$liquidWasteKg)
+adf.test(dt$liquidWasteKg)
+adf.test(dt$liquidWasteKg, alternative = "explosive")
+
+# stationary test for solid ----------------------------------------------------
+PP.test(dt$solidWasteKg)
+adf.test(dt$solidWasteKg)
+adf.test(dt$solidWasteKg, alternative = "explosive")
+
+plot.spectrum(dt$liquidWasteKg)
+raw.spec <- list(spec.pgram(dt$liquidWasteKg, spans = 5))
+1/raw.spec[[1]]$freq[which.max(raw.spec[[1]]$spec)]
+
+plot.spectrum(dt$solidWasteKg)
+raw.spec <- list(spec.pgram(dt$solidWasteKg, spans = 5))
+1/raw.spec[[1]]$freq[which.max(raw.spec[[1]]$spec)]
+
+```
+
+
+
+
+
+
+# Regular Multiple Linear Regression Model
+
+## data preprocessing
+```{r X_data_preprocessing}
+# y <- food waste / customer
+# group <- "all", "liq", and "sol"
+# x <- tempC
+ifelse(!(length(dt$allWasteKg) == length(dt$liquidWasteKg) & 
+length(dt$allWasteKg) == length(dt$solidWasteKg) &
+length(dt$liquidWasteKg) == length(dt$solidWasteKg)),
+print("Observation days are different"),
+(num <- length(dt$allWasteKg[!dt$isClose])))
+
+dt_slm <- data.frame(
+y = c(func_zero(dt$allWasteKg [!dt$isClose], dt$customer[!dt$isClose]),
+func_zero(dt$liquidWasteKg[!dt$isClose], dt$customer[!dt$isClose]),
+func_zero(dt$solidWasteKg [!dt$isClose], dt$customer[!dt$isClose])),
+group = rep(c("all", "liq", "sol"), each = num),
+x = rep(dt$tempC[!dt$isClose],each=1,times=3)
+)
+```
+
+
+## Basic Plots
+```{r basic_plots}
+#ggplot(data = dt_sl, aes(x=week, y=waste, fill=form))
+# Histogram
+kernel_hist_wasteKg_cus <- 
+ggplot(data = dt_slm, mapping = aes(x=y, fill=group)) +
+geom_histogram(color = "black", alpha=.6, position="identity") +
+geom_density(lwd = 1, linetype = 2, alpha = 0.25) +
+#scale_fill_manual(values=c('red', 'blue', 'green')) +
+labs(title = "Daily Food Waste per Customer - Histogram and Kernel Density Estimation")
+kernel_hist_wasteKg_cus
+
+# scatter plot between food waste per customer and weather conditions: temp
+scatter_sl_waste_customer_temp <- 
+ggplot(data = dt_slm, 
+mapping = aes(x=x, y=y, shape = group, color = group, fill=group)) +
+geom_point() +
+geom_smooth(method=lm) +
+labs(title = "Scatter Plot of Daily Food Waste per Customer with Temperature (°C)",
+x = "Degree Celsius", y = "Daily Food Waste per Customer (kg/person)")
+scatter_sl_waste_customer_temp
+```
+
+
+## Analysis for SLR
+```{r SLR}
+# Basic Summary ----------------------------------------------------------------
+summary(dt_slm)
+
+# SLR ======
+slm_all_liq_sol <- lm(c(y[dt_slm$group=="all"],
+y[dt_slm$group=="liq"],
+y[dt_slm$group=="sol"]) 
+~ c(x[dt_slm$group=="all"],
+x[dt_slm$group=="liq"],
+x[dt_slm$group=="sol"]),
+data = dt_slm)
+summary(slm_all_liq_sol)
+
+dt_slm %>%
+group_by(group) %>%
+do(tidy(lm(y ~ x, data = dt_slm)))
+```
+
+
+## Analysis for MLR
+```{r MLR}
+# MLR --------------------------------------------------------------------------
+#dt$week_day <- as.factor(dt$week_day)
+dt$week_day<- factor(week_day, ordered = FALSE)
+mlm_all <- allWasteKg ~ anomTempC + humidityPerc + anomPrecipMM + liquors + week_day
+ml_all <- lm(mlm_all, data = dt)
+summary(ml_all)
+
+dt %>%
+do(tidy(lm(mlm_all, data = dt)))
+```
+
+## Assumption check
+```{r ass_MLR}
+# independence of observations; no autocorrelatiion ----------------------------
+
+cor()
+# Normality --------------------------------------------------------------------
+hist()
+qqplot()
+
+# Linearity --------------------------------------------------------------------
+
+# Homoscedasticity -------------------------------------------------------------
+
+# muticollinearity -------------------------------------------------------------
+
+
+```
+
+```{r check_normality}
+# ------------------------------------------------------------------------------
+par(mfrow=c(2,2))
+plot(ml_all)
+```
+
+```{r Box_Cox_Trans}
+boxCox(ml_all, family="yjPower", plotit = TRUE)
+pwrTrns <- powerTransform(ml_all,family="yjPower")
+lambda <- pwrTrns$lambda
+
+pwrd_ml_y <- (dt$allWasteKg^lambda-1)/lambda
+
+pwrd_ml_all <- lm(pwrd_ml_y ~ anomTempC + humidityPerc + anomPrecipMM + liquors + week_day, data = dt)
+
+par(mfrow=c(2,2))
+plot(pwrd_ml_all)
+```
+
+
+# First-Lagged Difference Multiple Linear Regression
+
+```{r data_preprocessing}
+# ------------------------------------------------------------------------------
+dy <- diff(dt$allWasteKg)
+dx1 <- diff(dt$tempC)
+dx2 <- diff(dt$humidityPercent)
+ddt <- data.frame(
+diff_allWasteKg = dy,
+diff_tempC = dx1,
+diff_humi = dx2
+)
+```
+
+```{r plots_diff}
+# ------------------------------------------------------------------------------
+
+```
+
+
+```{r check_stationary}
+# ------------------------------------------------------------------------------
+```
+
+```{r analysis}
+# Basic Analysis ---------------------------------------------------------------
+summary(ddt)
+
+# SLR --------------------------------------------------------------------------
+diff_slm <- lm(diff_allWasteKg ~ diff_tempC, data = ddt)
+summary(diff_slm)
+
+
+# MLR --------------------------------------------------------------------------
+diff_mlm <- lm(diff_allWasteKg ~ diff_tempC + diff_humi, data = ddt)
+summary(diff_mlm)
+```
+
+```{r check_assumptions}
+# ------------------------------------------------------------------------------
+
+```
+
+```{r check_normality}
+# ------------------------------------------------------------------------------
+par(mfrow=c(2,2))
+plot(diff_slm)
+par(mfrow=c(2,2))
+plot(diff_mlm)
+```
+
+
+# State-Space Model
+
+## State-Space Model w/ time-vary coef
+```{r library}
+# ------------------------------------------------------------------------------
+
+```
+
+```{r preprocess_stan}
+# Computation faster -----------------------------------------------------------
+rstan_options(auto_write = TRUE)
+options(mc.cores = parallel::detectCores())
+
+# Import function to plot the state-space model --------------------------------
+source("plotSSM.R", encoding = "utf-8")
+```
+
+```{r data_preprocessing}
+# ------------------------------------------------------------------------------
+dt$date <- as.POSIXct(dt$date, format = "%y/%m/%d") # Time-Series conversion
+format(dt$date,)
+
+head(dt, n = 5)
+
+# ------------------------------------------------------------------------------
+data_list <- list(
+y = dt$allWasteKg, 
+ex = dt$tempC, 
+T = nrow(dt)
+)
+```
+
+```{r tsPlot}
+# Plot time series -------------------------------------------------------------
+## column 3: all food waste; 12: temp
+autoplot(ts(dt[,c(4,13)]))
+autoplot(ts(dt[,c(5,13)]))
+autoplot(ts(dt[,c(6,13)]))
+```
+
+```{r brm_fix}
+# Regular regression -----------------------------------------------------------
+mod_lm <- brm(
+formula = allWasteKg ~ tempC,
+family = gaussian(link = "identity"),
+data = dt,
+seed = 1
+)
+
+fixef(mod_lm)
+```
+
+```{r time_vary_coef_stan}
+# ------------------------------------------------------------------------------
+time_varying_coef_stan <- stan(
+file = "reg.stan",
+data = data_list,
+seed = 1,
+iter = 8000,
+warmup = 2000,
+thin = 6
+)
+
+nrow(dt)
+
+# ------------------------------------------------------------------------------
+print(time_varying_coef_stan,
+pars = c("s_u", "s_v", "s_w", "beta[77]"),
+probs = c(0.025, 0.5, 0.975))
+
+# ------------------------------------------------------------------------------
+mcmc_rhat(rhat(time_varying_coef_stan))
+check_hmc_diagnostics(time_varying_coef_stan)
+
+# ------------------------------------------------------------------------------
+mcmc_sample <- rstan::extract(time_varying_coef_stan, permuted = FALSE)
+mcmc_acf_bar(mcmc_sample, pars = c("s_u", "s_v", "s_w", "lp__"))
+mcmc_trace(mcmc_sample, pars = c("s_u", "s_v", "s_w", "lp__"))
+
+# ------------------------------------------------------------------------------
+options(max.print=100000)
+print(time_varying_coef_stan, probs = c(0.025, 0.5, 0.975))
+
+# ------------------------------------------------------------------------------
+mcmc_sample <- rstan::extract(time_varying_coef_stan)
+
+# ------------------------------------------------------------------------------
+p_all <- plotSSM(mcmc_sample = mcmc_sample, 
+time_vec = dt$date, 
+obs_vec = dt$allWasteKg,
+state_name = "mu", 
+graph_title = "Estimation of State", 
+y_label = "All Food Waste in Kg") 
+
+p_a <- plotSSM(mcmc_sample = mcmc_sample, 
+time_vec = dt$date, 
+obs_vec = dt$allWasteKg,
+state_name = "alpha", 
+graph_title = "Estimation of no advertisement effect", 
+y_label = "All Food Waste in Kg") 
+
+p_b <- plotSSM(mcmc_sample = mcmc_sample, 
+time_vec = dt$date,
+state_name = "beta", 
+graph_title = "Estimation of change in adv. effect", 
+y_label = "coef") 
+
+grid.arrange(p_all, p_a, p_b)
+
+```
+
+
+## State-Space Model w/ seasonal
+
+
+```{r import data}
+## Import Data and Basic Plot --------------------------------------------------
+
+# Import Data
+dt$date <- as.POSIXct(dt$date,format(dt$date,format = "%d/%m/%y"))
+# Time-Series conversion
+
+head(dt, n = 13)
+
+data_list <- list(
+y = dt$allWasteKg, 
+ex = dt$humidityPercent, 
+T = nrow(dt)
+)
+```
+
+
+```{r tsPlot}
+# Plot time series -------------------------------------------------------------
+## column 3: all food waste; 12: temp
+autoplot(ts(dt[,c(3,12)]))
+```
+
+```{r Model Analysis}
+# Estimation of Basic Time Series Structure Model ------------------------------
+
+# Data Preprocessing -----------------------------------------------------------
+data_list <- list(
+y = sales_df_4$sales, 
+T = nrow(sales_df_4)
+)
+
+# Estimation of Seasonal Structure Model ---------------------------------------
+basic_structual <- stan(
+file = "season.stan",
+data = data_list,
+seed = 1,
+iter = 8000,
+warmup = 2000,
+thin = 6,
+control = list(adapt_delta = 0.97, max_treedepth = 15)
+)
+
+# Estimation Result of Seasonal Structure Model --------------------------------
+print(basic_structual, 
+par = c("s_z", "s_s", "s_v", "lp__"),
+probs = c(0.025, 0.5, 0.975))
+
+
+# Check for Convergence --------------------------------------------------------
+mcmc_rhat(rhat(basic_structual))
+check_hmc_diagnostics(basic_structual)
+
+# Check for trace plot ---------------------------------------------------------
+mcmc_sample <- rstan::extract(basic_structual, permuted = FALSE)
+mcmc_trace(mcmc_sample, pars = c("s_z", "s_s", "s_v", "lp__"))
+
+# Show Estimation Results ------------------------------------------------------
+options(max.print=100000)
+print(basic_structual, probs = c(0.025, 0.5, 0.975))
+```
+
+
+
+```{r Results}
+# Plot Estimation Results ------------------------------------------------------
+
+# Obtain MCMC Samples ----------------------------------------------------------
+mcmc_sample <- rstan::extract(basic_structual)
+
+# Plot Estimation Result of all factors ----------------------------------------
+p_all <- plotSSM(mcmc_sample = mcmc_sample, 
+time_vec = sales_df_4$date,
+obs_vec = sales_df_4$sales,
+state_name = "alpha", 
+graph_title = "Estimation of All Factors: Level and Seasonal", 
+y_label = "sales") 
+
+# Plot Estimation of No Seasonal Factor ----------------------------------------
+p_trend <- plotSSM(mcmc_sample = mcmc_sample, 
+time_vec = sales_df_4$date,
+obs_vec = sales_df_4$sales,
+state_name = "mu", 
+graph_title = "Estimation without Seasonal", 
+y_label = "sales") 
+
+# Plot Seasonal Factor ---------------------------------------------------------
+p_cycle <- plotSSM(mcmc_sample = mcmc_sample, 
+time_vec = sales_df_4$date,
+state_name = "gamma", 
+graph_title = "Seasonal Factor", 
+y_label = "gamma") 
+
+grid.arrange(p_all, p_trend, p_cycle)
+```
