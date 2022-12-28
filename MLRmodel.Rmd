@@ -190,29 +190,29 @@ sales = c(rep(df$sales,2)))
 ```{r basic_summary_waste}
 # basic summary ----------------------------------------------------------------
 data.frame(food_waste_all = c(summary(dt$allWasteKg)),
-food_waste_liquid = c(summary(dt$liquidWasteKg)),
-food_waste_solid = c(summary(dt$solidWasteKg)))
+           food_waste_liquid = c(summary(dt$liquidWasteKg)),
+           food_waste_solid = c(summary(dt$solidWasteKg)))
 # basic summary for restaurant open --------------------------------------------
 data.frame(food_waste_all = c(summary(dt$allWasteKg[!dt$isClose])),
-food_waste_liquid = c(summary(dt$liquidWasteKg[!dt$isClose])),
-food_waste_solid = c(summary(dt$solidWasteKg[!dt$isClose])))
+           food_waste_liquid = c(summary(dt$liquidWasteKg[!dt$isClose])),
+           food_waste_solid = c(summary(dt$solidWasteKg[!dt$isClose])))
 ```
 
 
 # Univariable Basic plots
 ```{r tsPlot}
 # Time Series Plot on all, liquid, and solid food waste ------------------------
-tsPlot <- ggplot() +
-geom_line(data = dt, aes(x = date, y = allWasteKg), 
-color="black") +
-geom_line(data = dt, aes(x = date, y = liquidWasteKg), 
-color="blue", linetype = "dashed") +
-geom_line(data = dt, aes(x = date, y = solidWasteKg), 
-color="red", linetype = "dotted") +
-geom_point() +
-xlab("Date") +
-ylab("Daily Food Waste (kg)") +
-ggtitle("Daily Food Waste Trend")
+tsPlot <- 
+  ggplot() +
+  geom_line(data = dt, aes(x = date, y = allWasteKg), color="black") +
+  geom_line(data = dt, aes(x = date, y = liquidWasteKg), 
+            color="blue", linetype = "dashed") +
+  geom_line(data = dt, aes(x = date, y = solidWasteKg), 
+            color="red", linetype = "dotted") +
+  geom_point() +
+  xlab("Date") +
+  ylab("Daily Food Waste (kg)") +
+  ggtitle("Daily Food Waste Trend")
 tsPlot
 ```
 
@@ -631,9 +631,10 @@ scatter_plot_waste_precip <-
   geom_smooth(method="lm", formula = y ~ x, fullrange=TRUE) +
   geom_rug() +
   scale_y_continuous(name = "Daily Food Waste (kg)",
-  limits = c(0, 7), expand = c(0.05, 0)) +
+                     limits = c(-10, 10), expand = c(0.05, 0)) +
   scale_x_continuous(name = "Daily Precipitation (mm)",
-  limits = c(0, 15), expand = c(0.05, 0)) +
+                     limits = c(-15, 15), expand = c(0.05, 0)) +
+  coord_cartesian(xlim=c(0,15), ylim=c(0,7)) +
   theme_pubr() +
   theme(legend.position = c(0.15, 0.9))
 #scatter_plot_waste_precip
@@ -873,7 +874,7 @@ scatter_plot_waste_liqr_sl <-
   geom_rug() +
   scale_y_continuous(name = "Daily Food Waste (kg)",
   limits = c(0, 5), expand = c(0.05, 0)) +
-  scale_x_continuous(name = "Daily Number of Customers",
+  scale_x_continuous(name = "Daily Number of Liquor Sales",
   limits = c(0, 7), expand = c(0.05, 0)) +
   theme_pubr() +
   theme(legend.position = c(0.15, 0.9))
