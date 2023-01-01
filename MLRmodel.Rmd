@@ -100,42 +100,47 @@ liquidWasteKg <- c(liquidWasteKg, ifelse(val == 0, val, val - 1.3))
 
 # Solid := all - liquid food waste
 solidWasteKg <- allWasteKg - liquidWasteKg
-
+# check negative values
+if(!(all((foodLossKg >= 0)|
+         (solidWasteKg >= 0)|
+         (liquidWasteKg >= 0)|
+         (solidWasteKg >= 0) == TRUE)))
+    print("The date has negative values.")
 
 # Number of observations and closed day at the restaurant ----------------------
-open_days <- sum(!sheet$isClose)
+open_days  <- sum(!sheet$isClose)
 close_days <- sum(sheet$isClose)
-obs_days <- open_days + close_days
+obs_days   <- open_days + close_days
 
 
 # Anomalies on weather condition variables: X - X_bar --------------------------
-anomTempC <- as.numeric(sheet$hrTM - mean(sheet$hrTM))
+anomTempC    <- as.numeric(sheet$hrTM - mean(sheet$hrTM))
 anomPrecipMM <- as.numeric(sheet$precip - mean(sheet$precip))
 
 # Data Frame -------------------------------------------------------------------
 df <- data.frame(
-# Obs. date and the restaurant close or not
-date = as.Date(sheet$date[1:obs_days]),
-isClose = as.logical(sheet$isClose),
-# food loss and waste at the restaurant
-foodLossKg = foodLossKg,
-allWasteKg = allWasteKg,
-liquidWasteKg = liquidWasteKg,
-solidWasteKg = solidWasteKg,
-# types of orders
-regularOrders = as.numeric(sheet$orders),
-miniOrders = as.numeric(sheet$miniOrders),
-takeouts = as.numeric(sheet$takeouts),
-# 
-customer = as.numeric(sheet$customers),
-liquors = as.numeric(sheet$liquors),
-sales = as.numeric(sheet$sales),
-# weather conditions
-tempC = as.numeric(sheet$hrTM),
-humidityPerc = as.numeric(sheet$hrHM),
-precipMM = as.numeric(sheet$precip)#,
-#anomTempC = anomTempC,
-#anomPrecipMM = anomPrecipMM
+  # Obs. date and the restaurant close or not
+  date    = as.Date(sheet$date[1:obs_days]),
+  isClose = as.logical(sheet$isClose),
+  # food loss and waste at the restaurant
+  foodLossKg    = foodLossKg,
+  allWasteKg    = allWasteKg,
+  liquidWasteKg = liquidWasteKg,
+  solidWasteKg  = solidWasteKg,
+  # types of orders
+  regularOrders = as.numeric(sheet$orders),
+  miniOrders    = as.numeric(sheet$miniOrders),
+  takeouts      = as.numeric(sheet$takeouts),
+  # 
+  customer = as.numeric(sheet$customers),
+  liquors  = as.numeric(sheet$liquors),
+  sales    = as.numeric(sheet$sales),
+  # weather conditions
+  tempC        = as.numeric(sheet$hrTM),
+  humidityPerc = as.numeric(sheet$hrHM),
+  precipMM     = as.numeric(sheet$precip)#,
+  #anomTempC = anomTempC,
+  #anomPrecipMM = anomPrecipMM
 )
 ```
 
@@ -147,8 +152,10 @@ week_day <- factor(week_day,
 levels = c("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"), 
 ordered = TRUE)
 week_day <- as.factor(week_day)
+
 # Assign 1; otherwise 0
 tue <- wed <- thur <- fri <- sat <- sun <- numeric(length = obs_days)
+
 tue <- ifelse(week_day == "Tue", 1, 0)
 wed <- ifelse(week_day == "Wed", 1, 0)
 thu <- ifelse(week_day == "Thu", 1, 0)
@@ -174,14 +181,23 @@ dt <- cbind(df, week_day, wkMat, week_day_end)
 # Distinguish between liquid food waste and solid food waste
 # Assign "Liquid" and "Solid" as factor
 dt_sl <- data.frame(waste = c(df$liquidWasteKg, df$solidWasteKg),
-form = c(rep("Liquid", obs_days), rep("Solid", obs_days)),
-week = c(rep(week_day,2)),
-tempC = c(rep(df$tempC,2)),
-humi = c(rep(df$humidityPerc,2)),
-prec = c(rep(df$precipMM,2)),
-cust = c(rep(df$customer,2)),
-liqr = c(rep(df$liquors,2)),
-sales = c(rep(df$sales,2)))
+                    form  = c(rep("Liquid", obs_days), rep("Solid", obs_days)),
+                    week  = c(rep(week_day,2)),
+                    tempC = c(rep(df$tempC,2)),
+                    humi  = c(rep(df$humidityPerc,2)),
+                    prec  = c(rep(df$precipMM,2)),
+                    cust  = c(rep(df$customer,2)),
+                    liqr  = c(rep(df$liquors,2)),
+                    sales = c(rep(df$sales,2)))
+```
+
+# Final Data Set
+```{r}
+str(dt)
+head(dt, n=5)
+
+str(dt_sl)
+head(dt_sl, n=5)
 ```
 
 
@@ -189,13 +205,13 @@ sales = c(rep(df$sales,2)))
 # Univariable Basic Summary
 ```{r basic_summary_waste}
 # basic summary ----------------------------------------------------------------
-data.frame(food_waste_all = c(summary(dt$allWasteKg)),
+data.frame(food_waste_all    = c(summary(dt$allWasteKg)),
            food_waste_liquid = c(summary(dt$liquidWasteKg)),
-           food_waste_solid = c(summary(dt$solidWasteKg)))
+           food_waste_solid  = c(summary(dt$solidWasteKg)))
 # basic summary for restaurant open --------------------------------------------
-data.frame(food_waste_all = c(summary(dt$allWasteKg[!dt$isClose])),
+data.frame(food_waste_all    = c(summary(dt$allWasteKg[!dt$isClose])),
            food_waste_liquid = c(summary(dt$liquidWasteKg[!dt$isClose])),
-           food_waste_solid = c(summary(dt$solidWasteKg[!dt$isClose])))
+           food_waste_solid  = c(summary(dt$solidWasteKg[!dt$isClose])))
 ```
 
 
@@ -436,7 +452,9 @@ dens_temp +
   plot_spacer() + # library(patchwork)
   scatter_plot_waste + dens_waste +
   plot_layout(ncol = 2, nrow = 2, widths = c(4, 1), heights = c(1, 4))
+```
 
+```{r density_scatter_waste_sl_temp}
 # density and scatter plot of food waste and temperature -----------------------
 scatter_plot_waste_temp_sl <-
   ggplot(data=dt_sl,aes(x=tempC, y=waste, shape=form, color=form)) +
@@ -472,8 +490,9 @@ dens_temp +
   plot_spacer() + # library(patchwork)
   scatter_plot_waste_temp_sl + dens_waste +
   plot_layout(ncol = 2, nrow = 2, widths = c(4, 1), heights = c(1, 4))
+```
 
-
+```{r X}
 # scatter plot between food waste and weather conditions: temp -----------------
 # scatter_waste_temp <- 
 # ggplot(data = dt, aes(x=tempC, y=allWasteKg)) +
@@ -512,7 +531,7 @@ dens_temp +
 ```
 
 
-```{r scatter_waste_humidity}
+```{r density_scatter_waste_humidity}
 # Scatter and Densities plot of food waste and humidity ------------------------
 scatter_plot_waste_humidity <-
   ggplot(data=dt,aes(x=humidityPerc, y=allWasteKg)) +
@@ -549,7 +568,9 @@ dens_humidity +
   plot_spacer() + # library(patchwork)
   scatter_plot_waste_humidity + dens_waste +
   plot_layout(ncol = 2, nrow = 2, widths = c(4, 1), heights = c(1, 4))
+```
 
+```{r density_scatter_waste_sl_humidity}
 # density and scatter plot of food waste and humidity --------------------------
 scatter_plot_waste_humi_sl <-
   ggplot(data=dt_sl,aes(x=humi, y=waste, shape=form, color=form)) +
@@ -585,7 +606,9 @@ dens_humidity +
   plot_spacer() + # library(patchwork)
   scatter_plot_waste_humi_sl + dens_waste +
   plot_layout(ncol = 2, nrow = 2, widths = c(4, 1), heights = c(1, 4))
+```
 
+```{r X}
 # ------------------------------------------------------------------------------
 # scatter plot between food waste and weather conditions: humidity
 # scatter_waste_humidity <- ggplot(data = dt, aes(x=humidityPerc, y=allWasteKg)) +
@@ -622,7 +645,7 @@ dens_humidity +
 # scatter_sl_waste_temp
 ```
 
-```{r scatter_waste_precip}
+```{r density_scatter_waste_precip}
 # Scatter and Densities plot of food waste and humidity ------------------------
 scatter_plot_waste_precip <-
   ggplot(data=dt,aes(x=precipMM, y=allWasteKg)) +
@@ -660,8 +683,9 @@ dens_precip +
   plot_spacer() + # library(patchwork)
   scatter_plot_waste_precip + dens_waste +
   plot_layout(ncol = 2, nrow = 2, widths = c(4, 1), heights = c(1, 4))
+```
 
-
+```{r density_scatter_waste_sl_precip}
 # density and scatter plot of food waste and humidity --------------------------
 scatter_plot_waste_precip_sl <-
   ggplot(data=dt_sl,aes(x=prec, y=waste, shape=form, color=form)) +
@@ -670,9 +694,10 @@ scatter_plot_waste_precip_sl <-
   geom_smooth(method="lm", formula = y~x, fullrange=TRUE) +
   geom_rug() +
   scale_y_continuous(name = "Daily Food Waste (kg)",
-  limits = c(0, 5), expand = c(0.1, 0)) +
+                     limits = c(-10, 5), expand = c(0.1, 0)) +
   scale_x_continuous(name = "Daily Precipitation (mm)",
-  limits = c(0, 15), expand = c(0.1, 0)) +
+                     limits = c(-15, 15), expand = c(0.1, 0)) +
+  coord_cartesian(xlim=c(0,15), ylim=c(0,7)) +
   theme_pubr() +
   theme(legend.position = c(0.85, 0.9))
 #scatter_plot_waste_precip_sl
@@ -697,7 +722,9 @@ dens_precip +
   plot_spacer() + # library(patchwork)
   scatter_plot_waste_precip_sl + dens_waste +
   plot_layout(ncol = 2, nrow = 2, widths = c(4, 1), heights = c(1, 4))
+```
 
+```{r X}
 # ------------------------------------------------------------------------------
 # scatter plot between food waste and weather conditions: Precipitation in mm
 # scatter_waste_precip <- ggplot(data = dt, aes(x=precipMM, y=allWasteKg)) +
@@ -732,7 +759,7 @@ dens_precip +
 # scatter_sl_waste_cust_precip
 ```
 
-```{r scatter_waste_customers}
+```{r density_scatter_waste_customers}
 # Scatter and Densities plot of food waste and customers -----------------------
 scatter_plot_waste_customers <-
   ggplot(data=dt,aes(x=customer, y=allWasteKg)) +
@@ -769,8 +796,10 @@ dens_customer +
   plot_spacer() + # library(patchwork)
   scatter_plot_waste_customers + dens_waste +
   plot_layout(ncol = 2, nrow = 2, widths = c(4, 1), heights = c(1, 4))
+```
 
 
+```{r density_scatter_waste_sl_customers}
 # density and scatter plot of food waste and humidity --------------------------
 scatter_plot_waste_cust_sl <-
   ggplot(data=dt_sl,aes(x=cust, y=waste, shape=form, color=form)) +
@@ -806,8 +835,9 @@ dens_cust +
   plot_spacer() + # library(patchwork)
   scatter_plot_waste_cust_sl + dens_waste +
   plot_layout(ncol = 2, nrow = 2, widths = c(4, 1), heights = c(1, 4))
+```
 
-
+```{r X}
 # ------------------------------------------------------------------------------
 # scatter plot between food waste and customer
 # scatter_waste_cust <- ggplot(data = dt, aes(x=customer, y=allWasteKg)) +
@@ -826,7 +856,7 @@ dens_cust +
 # scatter_sl_waste_cust
 ```
 
-```{r scatter_waste_liquor}
+```{r density_scatter_waste_liquor}
 # Scatter and Densities plot of food waste and Liquor --------------------------
 scatter_plot_waste_liquor <-
   ggplot(data=dt,aes(x=liquors, y=allWasteKg)) +
@@ -863,8 +893,8 @@ dens_liquor +
   plot_spacer() + # library(patchwork)
   scatter_plot_waste_liquor + dens_waste +
   plot_layout(ncol = 2, nrow = 2, widths = c(4, 1), heights = c(1, 4))
-
-
+```
+```{r density_scatter_waste_ls_liquor}
 # density and scatter plot of food waste and humidity --------------------------
 scatter_plot_waste_liqr_sl <-
   ggplot(data=dt_sl,aes(x=liqr, y=waste, shape=form, color=form)) +
@@ -900,7 +930,9 @@ dens_liqr +
   plot_spacer() + # library(patchwork)
   scatter_plot_waste_liqr_sl + dens_waste +
   plot_layout(ncol = 2, nrow = 2, widths = c(4, 1), heights = c(1, 4))
+```
 
+```{r X}
 # ------------------------------------------------------------------------------
 # scatter plot between food waste and liquor
 # scatter_waste_liquor <- ggplot(data = dt, aes(x=liquors, y=allWasteKg)) +
@@ -973,8 +1005,9 @@ dens_sales +
   plot_spacer() + # library(patchwork)
   scatter_plot_waste_sales + dens_waste +
   plot_layout(ncol = 2, nrow = 2, widths = c(4, 1), heights = c(1, 4))
+```
 
-
+```{r density_scatter_waste_sl_liquor}
 # density and scatter plot of food waste and humidity --------------------------
 scatter_plot_waste_sales_sl <-
   ggplot(data=dt_sl,aes(x=sales, y=waste, shape=form, color=form)) +
@@ -1010,7 +1043,9 @@ dens_sales +
   plot_spacer() + # library(patchwork)
   scatter_plot_waste_sales_sl + dens_waste +
   plot_layout(ncol = 2, nrow = 2, widths = c(4, 1), heights = c(1, 4))
+```
 
+```{r X}
 # ------------------------------------------------------------------------------
 # scatter plot between food waste and sales
 # scatter_waste_sales <- ggplot(data = dt, aes(x=sales, y=allWasteKg)) +
@@ -1054,10 +1089,40 @@ dens_sales +
 ```
 
 
-# Correlation b/w Exp. vars.
-```{r correlation_pval}
+# Correlation b/w Ind. vars.
+```{r correlation_ind.vars}
 # correlation between independent variables ------------------------------------
-corr <- round(cor(dt[c(11:12,16:18)]),2)
+str(dt)
+corr <- round(cor(dt[c("foodLossKg",
+                       "allWasteKg",
+                       "liquidWasteKg",
+                       "solidWasteKg")]), 
+              2)
+corr
+# correlation p-values ---------------------------------------------------------
+corr_pValues <- round(cor_pmat(dt[c("foodLossKg",
+                                    "allWasteKg",
+                                    "liquidWasteKg",
+                                    "solidWasteKg")]),4)
+corr_pValues
+```
+
+# Cross Correlation b/w food loss and food waste
+```{r cross_cor_ind.vars}
+ccf(dt["foodLossKg"],dt["allWasteKg"])
+ccf(dt["foodLossKg"],dt["liquidWasteKg"])
+ccf(dt["foodLossKg"],dt["solidWasteKg"])
+ccf(dt["allWasteKg"],dt["liquidWasteKg"])
+ccf(dt["allWasteKg"],dt["solidWasteKg"])
+ccf(dt["liquidWasteKg"],dt["solidWasteKg"])
+```
+
+
+# Correlation b/w Exp. vars.
+```{r correlation_exp.vars_pval}
+# correlation between independent variables ------------------------------------
+#str(dt)
+corr <- round(cor(dt[c()]),2)
 corr
 # correlation p-values ---------------------------------------------------------
 corr_pValues <- round(cor_pmat(dt[c(11:12,16:18)]),4)
