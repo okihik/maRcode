@@ -6,10 +6,16 @@ isValidSheet <- function(sheet = sheet){
     print("The object sheet does not exist.")
   }
   
+  # check the sheet is data frame:
+  # including the same number of columns and rows
+  if(!is.data.frame(sheet)){
+    print("The sheet is not data frame format.")
+  }
+  
   # Check if isClose is 0 or 1
   if(!is.logical(sheet$isClose)){
     isValid <- !isValid
-    print("The isClose col is not logical.")
+    print("The isClose column is not logical.")
   }
   
   # Check for Date

@@ -12,6 +12,8 @@ knitr::opts_chunk$set(echo = TRUE)
 #install.packages("googlesheets4") 
 library(googlesheets4) # google sheets
 library(ggplot2) # ggplot
+library(plotly)
+library(GGally)
 library(ggspectra)
 library(photobiology)
 library(ggfortify)
@@ -68,7 +70,7 @@ sheet <- na.omit(sheet)
 
 ```{r data_check}
 ################################################################################
-# Check for sheet existence
+# Check for sheet existence and data frame format
 # Check if isClose is 0 or 1
 # Check for Date
 # Check for negative values for measurements or observations
@@ -86,26 +88,26 @@ isValidSheet(sheet)
 # Create vectors for food loss and waste observations --------------------------
 foodLossKg <- allWasteKg <- liquidWasteKg <- solidWasteKg <- numeric()
 
-# Bucket weight for food loss is 1 kg
+# Bucket weight for food loss is 1 kg ------------------------------------------
 for (val in sheet$fl)
 foodLossKg <- c(foodLossKg, ifelse(val == 0, val, val - 1))
 
-# All food waste: Bucket and strainer weight is 1 kg + 0.3 kg
+# All food waste: Bucket and strainer weight is 1 kg + 0.3 kg ------------------
 for (val in sheet$slfw) 
 allWasteKg <- c(allWasteKg, ifelse(val == 0, val, val - 1.3))
 
-# Liquid: Bucket and strainer weight is 1 kg + 0.3 kg
+# Liquid: Bucket and strainer weight is 1 kg + 0.3 kg --------------------------
 for (val in sheet$lfw) 
 liquidWasteKg <- c(liquidWasteKg, ifelse(val == 0, val, val - 1.3))
 
-# Solid := all - liquid food waste
+# Solid := all - liquid food waste ---------------------------------------------
 solidWasteKg <- allWasteKg - liquidWasteKg
 # check negative values
 if(!(all((foodLossKg >= 0)|
          (solidWasteKg >= 0)|
          (liquidWasteKg >= 0)|
          (solidWasteKg >= 0) == TRUE)))
-    print("The date has negative values.")
+    print("Error: the date has negative values.")
 
 # Number of observations and closed day at the restaurant ----------------------
 open_days  <- sum(!sheet$isClose)
@@ -153,7 +155,7 @@ levels = c("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"),
 ordered = TRUE)
 week_day <- as.factor(week_day)
 
-# Assign 1; otherwise 0
+# Assign 1; otherwise 0 --------------------------------------------------------
 tue <- wed <- thur <- fri <- sat <- sun <- numeric(length = obs_days)
 
 tue <- ifelse(week_day == "Tue", 1, 0)
@@ -193,6 +195,7 @@ dt_sl <- data.frame(waste = c(df$liquidWasteKg, df$solidWasteKg),
 
 # Final Data Set
 ```{r}
+# Final Check the data set -----------------------------------------------------
 str(dt)
 head(dt, n=5)
 
@@ -208,7 +211,7 @@ head(dt_sl, n=5)
 data.frame(food_waste_all    = c(summary(dt$allWasteKg)),
            food_waste_liquid = c(summary(dt$liquidWasteKg)),
            food_waste_solid  = c(summary(dt$solidWasteKg)))
-# basic summary for restaurant open --------------------------------------------
+# basic summary for restaurant open only ---------------------------------------
 data.frame(food_waste_all    = c(summary(dt$allWasteKg[!dt$isClose])),
            food_waste_liquid = c(summary(dt$liquidWasteKg[!dt$isClose])),
            food_waste_solid  = c(summary(dt$solidWasteKg[!dt$isClose])))
@@ -221,10 +224,9 @@ data.frame(food_waste_all    = c(summary(dt$allWasteKg[!dt$isClose])),
 tsPlot <- 
   ggplot() +
   geom_line(data = dt, aes(x = date, y = allWasteKg), color="black") +
-  geom_line(data = dt, aes(x = date, y = liquidWasteKg), 
-            color="blue", linetype = "dashed") +
+  #geom_line(data = dt, aes(x = date, y = liquidWasteKg), color="orange", linetype = "dotted") +
   geom_line(data = dt, aes(x = date, y = solidWasteKg), 
-            color="red", linetype = "dotted") +
+            color="blue", linetype = "dashed") +
   geom_point() +
   xlab("Date") +
   ylab("Daily Food Waste (kg)") +
@@ -366,6 +368,29 @@ hist_solidWasteKg
 
 
 # Bivariable Basic Plots
+```{r}
+ggpairs(dt[c("foodLossKg",
+             "allWasteKg",
+             "liquidWasteKg",
+             "solidWasteKg",
+             "regularOrders",
+             "miniOrders",
+             "takeouts",
+             "customer",
+             "liquors",
+             "sales",
+             "tempC",
+             "humidityPerc",
+             "precipMM",
+             "week_day")])
+
+ggpairs(dt[c("allWasteKg",
+             "liquidWasteKg",
+             "solidWasteKg")])
+```
+
+
+
 ```{r boxplot_week_all}
 # boxplot of week of day for all food waste ------------------------------------
 boxplot_week_all <- 
@@ -1436,9 +1461,10 @@ head(dt, n = 5)
 
 # ------------------------------------------------------------------------------
 data_list <- list(
-y = dt$allWasteKg, 
-ex = dt$tempC, 
-T = nrow(dt)
+  y = dt$allWasteKg, 
+  ex_temp = dt$tempC, 
+  ex_humi = dt$humidityPerc,
+  T = nrow(dt)
 )
 ```
 
@@ -1465,20 +1491,21 @@ fixef(mod_lm)
 ```{r time_vary_coef_stan}
 # ------------------------------------------------------------------------------
 time_varying_coef_stan <- stan(
-file = "reg.stan",
-data = data_list,
-seed = 1,
-iter = 8000,
-warmup = 2000,
-thin = 6
+  file = "reg.stan",
+  data = data_list,
+  seed = 1,
+  iter = 8000,
+  warmup = 2000,
+  thin = 6
 )
 
 nrow(dt)
 
 # ------------------------------------------------------------------------------
 print(time_varying_coef_stan,
-pars = c("s_u", "s_v", "s_w", "beta[77]"),
-probs = c(0.025, 0.5, 0.975))
+      pars = c("s_alpha", "s_beta_temp", "s_beta_humi", "s_obs",
+               "beta_temp[92]","beta_humi[92]"),
+      probs = c(0.025, 0.5, 0.975))
 
 # ------------------------------------------------------------------------------
 mcmc_rhat(rhat(time_varying_coef_stan))
@@ -1486,8 +1513,10 @@ check_hmc_diagnostics(time_varying_coef_stan)
 
 # ------------------------------------------------------------------------------
 mcmc_sample <- rstan::extract(time_varying_coef_stan, permuted = FALSE)
-mcmc_acf_bar(mcmc_sample, pars = c("s_u", "s_v", "s_w", "lp__"))
-mcmc_trace(mcmc_sample, pars = c("s_u", "s_v", "s_w", "lp__"))
+mcmc_acf_bar(mcmc_sample, 
+             pars = c("s_alpha", "s_beta_temp", "s_beta_humi", "s_obs", "lp__"))
+mcmc_trace(mcmc_sample, 
+           pars = c("s_alpha", "s_beta_temp", "s_beta_humi", "s_obs", "lp__"))
 
 # ------------------------------------------------------------------------------
 options(max.print=100000)
@@ -1536,7 +1565,7 @@ head(dt, n = 13)
 
 data_list <- list(
 y = dt$allWasteKg, 
-ex = dt$humidityPercent, 
+ex = dt$tempC, 
 T = nrow(dt)
 )
 ```
@@ -1545,7 +1574,10 @@ T = nrow(dt)
 ```{r tsPlot}
 # Plot time series -------------------------------------------------------------
 ## column 3: all food waste; 12: temp
-autoplot(ts(dt[,c(3,12)]))
+autoplot(ts(dt[,c("allWasteKg"
+                  ,"tempC"
+                  #,"humidityPerc"
+                  )]))
 ```
 
 ```{r Model Analysis}
