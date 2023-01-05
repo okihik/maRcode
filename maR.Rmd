@@ -49,6 +49,7 @@ options(mc.cores = parallel::detectCores())
 source("plotSSM.R", encoding="utf-8")
 source("isValidSheet.R", encoding="utf-8")
 source("ggplotCorr.R", encoding="utf-8")
+source("center_matrix.R", encoding = "utf-8")
 ```
 
 # Data Retrieval and Preprocessing
@@ -103,10 +104,10 @@ liquidWasteKg <- c(liquidWasteKg, ifelse(val == 0, val, val - 1.3))
 # Solid := all - liquid food waste ---------------------------------------------
 solidWasteKg <- allWasteKg - liquidWasteKg
 # check negative values
-if(!(all((foodLossKg >= 0)|
-         (solidWasteKg >= 0)|
+if(!(all((foodLossKg    >= 0)|
+         (solidWasteKg  >= 0)|
          (liquidWasteKg >= 0)|
-         (solidWasteKg >= 0) == TRUE)))
+         (solidWasteKg  >= 0) == TRUE)))
     print("Error: the date has negative values.")
 
 # Number of observations and closed day at the restaurant ----------------------
@@ -299,19 +300,20 @@ hist_liquidWasteKg
 ```
 
 ```{r X_histogram_liquid}
-# # Log transformed Histogram
-# hist_log_liquid_waste <- ggplot(data = dt, aes(x = log(liquidWasteKg))) +
-# geom_histogram(aes(y = ..density..), colour = 1, fill = "orange", bins = 30) +
-# labs(title = "Logged Daily Liquid Food Waste - Histogram")
-# hist_log_liquid_waste
-# 
-# kernel_hist_log_liquid_waste <- hist_log_liquid_waste +
-# geom_density(data = dt, 
-# mapping = aes(x = log(liquidWasteKg)), 
-# size = 1.5, colour = 4, fill = 4, alpha = 0.25) +
-# labs(title = "Logged Daily Liquid Food Waste - Histogram and Kernel Density Estimation")
-# kernel_hist_log_liquid_waste
-# 
+# Log transformed Histogram
+hist_log_liquid_waste <- 
+  ggplot(data = dt, aes(x = log(liquidWasteKg))) +
+  geom_histogram(aes(y = ..density..), bins = 30, colour = 1, fill = "orange") +
+  labs(title = "Logged Daily Liquid Food Waste - Histogram")
+hist_log_liquid_waste
+
+kernel_hist_log_liquid_waste <- 
+  hist_log_liquid_waste +
+  geom_density(data = dt,mapping = aes(x = log(liquidWasteKg)),
+               size = 1.5, colour = 4, fill = 4, alpha = 0.25) +
+  labs(title = "Logged Daily Liquid Food Waste - Histogram and Kernel Density Estimation")
+kernel_hist_log_liquid_waste
+
 # # Liquid Food Waste per Person transformed Histogram
 # hist_liquidWasteKg_cus <- ggplot(data = dt, aes(x = liquidWasteKg/customer)) +
 # geom_histogram(aes(y = ..density..), colour = 1, fill = "white") +
@@ -369,6 +371,7 @@ hist_solidWasteKg
 
 # Bivariable Basic Plots
 ```{r}
+# Correlations between variables -----------------------------------------------
 ggpairs(dt[c("foodLossKg",
              "allWasteKg",
              "liquidWasteKg",
@@ -384,6 +387,7 @@ ggpairs(dt[c("foodLossKg",
              "precipMM",
              "week_day")])
 
+# Correlations between independent variables -----------------------------------
 ggpairs(dt[c("allWasteKg",
              "liquidWasteKg",
              "solidWasteKg")])
@@ -1134,12 +1138,27 @@ corr_pValues
 
 # Cross Correlation b/w food loss and food waste
 ```{r cross_cor_ind.vars}
-ccf(dt["foodLossKg"],dt["allWasteKg"])
-ccf(dt["foodLossKg"],dt["liquidWasteKg"])
-ccf(dt["foodLossKg"],dt["solidWasteKg"])
-ccf(dt["allWasteKg"],dt["liquidWasteKg"])
-ccf(dt["allWasteKg"],dt["solidWasteKg"])
-ccf(dt["liquidWasteKg"],dt["solidWasteKg"])
+ccf_fl_all <- 
+  ggCcf(dt$foodLossKg,dt$allWasteKg) +
+  labs(title = "Cross Correlation Plot: Food Loss vs. All Food Waste")
+ccf_fl_liq <-
+  ggCcf(dt$foodLossKg,dt$liquidWasteKg) +
+  labs(title = "Cross Correlation Plot: Food Loss vs. Liquid Food Waste")
+ccf_fl_sol <-
+  ggCcf(dt$foodLossKg,dt$solidWasteKg) +
+  labs(title = "Cross Correlation Plot: Food Loss vs. Solid Food Waste")
+ccf_all_liq <-
+  ggCcf(dt$allWasteKg,dt$liquidWasteKg) +
+  labs(title = "Cross Correlation Plot: All Food Waste vs. Liquid Food Waste")
+ccf_all_sol <-
+  ggCcf(dt$allWasteKg,dt$solidWasteKg) +
+  labs(title = "Cross Correlation Plot: All Food Waste vs. Solid Food Waste")
+ccf_liq_sol <-
+  ggCcf(dt$liquidWasteKg,dt$solidWasteKg) +
+  labs(title = "Cross Correlation Plot: liquid Food Waste vs. Solid Food Waste")
+
+grid.arrange(ccf_fl_all,ccf_fl_liq,ccf_fl_sol,
+             ccf_all_liq,ccf_all_sol,ccf_liq_sol)
 ```
 
 
@@ -1147,10 +1166,16 @@ ccf(dt["liquidWasteKg"],dt["solidWasteKg"])
 ```{r correlation_exp.vars_pval}
 # correlation between independent variables ------------------------------------
 #str(dt)
-corr <- round(cor(dt[c()]),2)
+corr <- round(cor(dt[c("foodLossKg",
+                       "allWasteKg",
+                       "liquidWasteKg",
+                       "solidWasteKg")]),2)
 corr
 # correlation p-values ---------------------------------------------------------
-corr_pValues <- round(cor_pmat(dt[c(11:12,16:18)]),4)
+corr_pValues <- round(cor_pmat(dt[c("foodLossKg",
+                                    "allWasteKg",
+                                    "liquidWasteKg",
+                                    "solidWasteKg")]),4)
 corr_pValues
 ```
 
@@ -1158,12 +1183,12 @@ corr_pValues
 # ---------------------------------------------
 ggcorrplot(corr, hc.order = TRUE, type = "lower", 
 lab = TRUE)
-# Barring the no significant coefficient ======
-ggcorrplot(corr, hc.order = TRUE, type = "lower", 
-p.mat = corr_pValues)
-# Leave blank on no significant coefficient ------------------------------------
-ggcorrplot(corr, p.mat = corr_pValues, hc.order = TRUE,
-type = "lower", insig = "blank")
+# # Barring the no significant coefficient ======
+# ggcorrplot(corr, hc.order = TRUE, type = "lower", 
+# p.mat = corr_pValues)
+# # Leave blank on no significant coefficient ------------------------------------
+# ggcorrplot(corr, p.mat = corr_pValues, hc.order = TRUE,
+# type = "lower", insig = "blank")
 ```
 
 
@@ -1252,8 +1277,6 @@ raw.spec <- list(spec.pgram(dt$solidWasteKg, spans = 5))
 
 
 
-
-
 # Regular Multiple Linear Regression Model
 
 ## data preprocessing
@@ -1262,17 +1285,17 @@ raw.spec <- list(spec.pgram(dt$solidWasteKg, spans = 5))
 # group <- "all", "liq", and "sol"
 # x <- tempC
 ifelse(!(length(dt$allWasteKg) == length(dt$liquidWasteKg) & 
-length(dt$allWasteKg) == length(dt$solidWasteKg) &
-length(dt$liquidWasteKg) == length(dt$solidWasteKg)),
-print("Observation days are different"),
-(num <- length(dt$allWasteKg[!dt$isClose])))
+           length(dt$allWasteKg) == length(dt$solidWasteKg) &
+           length(dt$liquidWasteKg) == length(dt$solidWasteKg)),
+       print("Observation days are different"),
+       (num <- length(dt$allWasteKg[!dt$isClose])))
 
 dt_slm <- data.frame(
-y = c(func_zero(dt$allWasteKg [!dt$isClose], dt$customer[!dt$isClose]),
-func_zero(dt$liquidWasteKg[!dt$isClose], dt$customer[!dt$isClose]),
-func_zero(dt$solidWasteKg [!dt$isClose], dt$customer[!dt$isClose])),
-group = rep(c("all", "liq", "sol"), each = num),
-x = rep(dt$tempC[!dt$isClose],each=1,times=3)
+  y = c(func_zero(dt$allWasteKg [!dt$isClose], dt$customer[!dt$isClose]),
+        func_zero(dt$liquidWasteKg[!dt$isClose], dt$customer[!dt$isClose]),
+        func_zero(dt$solidWasteKg [!dt$isClose], dt$customer[!dt$isClose])),
+  group = rep(c("all", "liq", "sol"), each = num),
+  x = rep(dt$tempC[!dt$isClose],each=1,times=3)
 )
 ```
 
@@ -1438,10 +1461,6 @@ plot(diff_mlm)
 # State-Space Model
 
 ## State-Space Model w/ time-vary coef
-```{r library}
-# ------------------------------------------------------------------------------
-
-```
 
 ```{r preprocess_stan}
 # Computation faster -----------------------------------------------------------
@@ -1460,12 +1479,12 @@ format(dt$date,)
 head(dt, n = 5)
 
 # ------------------------------------------------------------------------------
-data_list <- list(
-  y = dt$allWasteKg, 
-  ex_temp = dt$tempC, 
-  ex_humi = dt$humidityPerc,
-  T = nrow(dt)
-)
+data_list <- 
+  list(y = dt$allWasteKg, 
+       ex_temp = dt$tempC, 
+       ex_humi = dt$humidityPerc,
+       T = nrow(dt)
+       )
 ```
 
 ```{r tsPlot}
@@ -1491,7 +1510,7 @@ fixef(mod_lm)
 ```{r time_vary_coef_stan}
 # ------------------------------------------------------------------------------
 time_varying_coef_stan <- stan(
-  file = "reg.stan",
+  file = "regMlt.stan",
   data = data_list,
   seed = 1,
   iter = 8000,

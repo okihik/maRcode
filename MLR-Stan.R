@@ -11,6 +11,7 @@ coef <- c(int.eff, temp.eff, nitro.eff, int.eff)
 mm <- model.matrix(~temp * nitro)
 
 y <- t(coef %*% t(mm)) + res
+
 data <- data.frame(y, 
                    x1 = temp, 
                    x2 = nitro, 
@@ -268,7 +269,7 @@ tidyMCMC(data.rstan.add,
 # That is, y increases at a rate of 1.58 per unit increase in when standardised for .cx2cx1
 
 # Note, as this is an additive model, 
-# the rates associated with are assumed to be constant throughtout the range of and vice versa. 
+# the rates associated with are assumed to be constant throughout the range of and vice versa. 
 # The cx1cx2 95% confidence interval for each partial slope does not overlap with 0,
 # implying a significant effects of and on cx1cx2 y. 
 # While workers attempt to become comfortable with a new statistical framework, 
@@ -278,26 +279,320 @@ tidyMCMC(data.rstan.add,
 # p-values for investigating the hypothesis that a parameter is equal to zero.
 
 
+## since values are less than zero
+mcmcpvalue(as.matrix(data.rstan.mult)[, "beta[1]"])
+
+mcmcpvalue(as.matrix(data.rstan.mult)[, "beta[2]"])
+
+mcmcpvalue(as.matrix(data.rstan.mult)[, "beta[3]"])
 
 
 
+## since values are less than zero
+library(loo)
+(full = loo(extract_log_lik(data.rstan.mult)))
+
+(reduced = loo(extract_log_lik(data.rstan.add)))
+
+par(mfrow = 1:2, mar = c(5, 3.8, 1, 0) + 0.1, las = 3)
+plot(full, label_points = TRUE)
+plot(reduced, label_points = TRUE)
 
 
+# Graphical summaries
+mcmc = as.matrix(data.rstan.add)
+## Calculate the fitted values
+newdata = rbind(data.frame(cx1 = seq(min(data$cx1, na.rm = TRUE), 
+                                     max(data$cx1,na.rm = TRUE), len = 100), 
+                           cx2 = 0, Pred = 1), 
+                data.frame(cx1 = 0,
+                           cx2 = seq(min(data$cx2, na.rm = TRUE), 
+                                     max(data$cx2, na.rm = TRUE), len = 100), 
+                           Pred = 2))
+
+Xmat = model.matrix(~cx1 + cx2, newdata)
+coefs = mcmc[, c("beta0", "beta[1]", "beta[2]")]
+fit = coefs %*% t(Xmat)
+newdata = newdata %>% mutate(x1 = cx1 + mean.x1, x2 = cx2 + mean.x2) %>%
+  cbind(tidyMCMC(fit, conf.int = TRUE, conf.method = "HPDinterval")) %>%
+  mutate(x = dplyr:::recode(Pred, x1, x2))
+
+ggplot(newdata, aes(y = estimate, x = x)) +
+  geom_line() + 
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), 
+              fill = "blue", alpha = 0.3) + 
+  scale_y_continuous("Y") +
+  scale_x_continuous("X") + theme_classic() + facet_wrap(~Pred)
+
+## Calculate partial residuals fitted values
+fdata = rdata = rbind(data.frame(cx1 = data$cx1, cx2 = 0, Pred = 1), 
+                      data.frame(cx1 = 0,cx2 = data$cx2, Pred = 2))
+
+fMat = rMat = model.matrix(~cx1 + cx2, fdata)
+fit = as.vector(apply(coefs, 2, median) %*% t(fMat))
+resid = as.vector(data$y - apply(coefs, 2, median) %*% t(rMat))
+rdata = rdata %>% mutate(partial.resid = resid + fit) %>%
+  mutate(x1 = cx1 + mean.x1, 
+         x2 = cx2 + mean.x2) %>% 
+  mutate(x = dplyr:::recode(Pred, x1, x2))
+
+  ggplot(newdata, aes(y = estimate, x = x)) + 
+    geom_point(data = rdata, aes(y = partial.resid),color = "gray") + 
+    geom_line() + geom_ribbon(aes(ymin = conf.low, ymax = conf.high),
+                              fill = "blue", alpha = 0.3) + 
+    scale_y_continuous("Y") + theme_classic() +
+    facet_wrap(~Pred, strip.position = "bottom", 
+                   labeller = label_bquote("x" *.(Pred))) + 
+    theme(axis.title.x = element_blank(), 
+          strip.background = element_blank(),
+          strip.placement = "outside")
 
 
+library(gridExtra)
+mcmc = as.matrix(data.rstan.add)
+## Calculate the fitted values
+newdata = data.frame(cx1 = seq(min(data$cx1, na.rm = TRUE), 
+                               max(data$cx1, na.rm = TRUE), len = 100), cx2 = 0)
+
+Xmat = model.matrix(~cx1 + cx2, newdata)
+coefs = mcmc[, c("beta0", "beta[1]", "beta[2]")]
+fit = coefs %*% t(Xmat)
+
+newdata = newdata %>% 
+  mutate(x1 = cx1 + mean.x1, x2 = cx2 + mean.x2) %>%
+  cbind(tidyMCMC(fit, conf.int = TRUE, conf.method = "HPDinterval"))
+
+## Now the partial residuals
+fdata = rdata = data.frame(cx1 = data$cx1, cx2 = 0)
+fMat = rMat = model.matrix(~cx1 + cx2, fdata)
+fit = as.vector(apply(coefs, 2, median) %*% t(fMat))
+resid = as.vector(data$y - apply(coefs, 2, median) %*% t(rMat))
+
+rdata = rdata %>% 
+  mutate(partial.resid = resid + fit) %>% 
+  mutate(x1 = cx1 + mean.x1, x2 = cx2 + mean.x2)
+
+g1 <- ggplot(newdata, aes(y = estimate, x = x1)) + 
+  geom_point(data = rdata, aes(y = partial.resid), color = "grey") +
+  geom_line() + geom_ribbon(aes(ymin = conf.low,
+                                ymax = conf.high), fill = "blue", alpha = 0.3) + 
+  scale_y_continuous("Y") + 
+  scale_x_continuous("X1") + 
+  theme_classic()
+
+newdata = data.frame(cx2 = seq(min(data$cx2, na.rm = TRUE), 
+                               max(data$cx2, na.rm = TRUE), len = 100), cx1 = 0)
+
+Xmat = model.matrix(~cx1 + cx2, newdata)
+coefs = mcmc[, c("beta0", "beta[1]", "beta[2]")]
+fit = coefs %*% t(Xmat)
+
+newdata = newdata %>%
+  mutate(x1 = cx1 + mean.x1, x2 = cx2 + mean.x2) %>%
+  cbind(tidyMCMC(fit, conf.int = TRUE, conf.method = "HPDinterval"))
+
+## Now the partial residuals
+fdata = rdata = data.frame(cx1 = 0, cx2 = data$cx2)
+fMat = rMat = model.matrix(~cx1 + cx2, fdata)
+fit = as.vector(apply(coefs, 2, median) %*% t(fMat))
+resid = as.vector(data$y - apply(coefs, 2, median) %*% t(rMat))
+rdata = rdata %>% mutate(partial.resid = resid + fit) %>% 
+  mutate(x1 = cx1 + mean.x1, x2 = cx2 + mean.x2)
+
+g2 <- ggplot(newdata, aes(y = estimate, x = x2)) + 
+  geom_point(data = rdata, aes(y = partial.resid), color = "grey") +
+  geom_line() + 
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), 
+              fill = "blue", alpha = 0.3) + 
+  scale_y_continuous("Y") +
+  scale_x_continuous("X2") + 
+  theme_classic()
+
+grid.arrange(g1, g2, ncol = 2)
 
 
+# For Multiplicative
+library(fields)
+mcmc = as.matrix(data.rstan.mult)
+## Calculate the fitted values
+newdata = expand.grid(cx1 = seq(min(data$cx1, na.rm = TRUE), 
+                                max(data$cx1, na.rm = TRUE), len = 100), 
+                      cx2 = mean(data$cx2) + sd(data$cx2) %*% -2:2)
+
+Xmat = model.matrix(~cx1 * cx2, newdata)
+coefs = mcmc[, c("beta0", "beta[1]", "beta[2]", "beta[3]")]
+fit = coefs %*% t(Xmat)
+
+newdata = newdata %>% 
+  mutate(x1 = cx1 + mean.x1, x2 = cx2 + mean.x2) %>%
+  cbind(tidyMCMC(fit, conf.int = TRUE, conf.method = "HPDinterval")) %>%
+  mutate(x2 = factor(x2, labels = paste("X2:~", c(-2, -1, 0, 1, 2), "*sigma")))
+
+## Partial residuals
+fdata = rdata = expand.grid(cx1 = data$cx1, 
+                            cx2 = mean(data$cx2) + sd(data$cx2) * -2:2)
+
+fMat = rMat = model.matrix(~cx1 * cx2, fdata)
+fit = as.vector(apply(coefs, 2, median) %*% t(fMat))
+resid = as.vector(data$y - apply(coefs, 2, median) %*% t(rMat))
+rdata = rdata %>% mutate(partial.resid = resid + fit) %>% 
+  mutate(x1 = cx1 + mean.x1, x2 = cx2 + mean.x2)
+
+## Partition the partial residuals such that each x1 trend only includes
+## x2 data that is within that range in the observed data
+findNearest = function(x, y) {
+  ff = fields:::rdist(x, y)
+  apply(ff, 1, function(x) which(x == min(x)))
+  }
+
+fn = findNearest(x = data[, c("x1", "x2")], y = rdata[, c("x1", "x2")])
+
+rdata = rdata[fn, ] %>% 
+  mutate(x2 = factor(x2, labels = paste("X2:~", c(-2, -1, 0, 1, 2), "*sigma")))
+
+ggplot(newdata, aes(y = estimate, x = x1)) + 
+  geom_line() + 
+  geom_blank(aes(y = 9)) +
+  geom_point(data = rdata, aes(y = partial.resid), color = "grey") +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), fill = "blue",alpha = 0.3) + 
+  scale_y_continuous("Y") + 
+  scale_x_continuous("X1") +
+  facet_wrap(~x2, labeller = label_parsed, nrow = 1, scales = "free_y") +
+  theme_classic() + 
+  theme(strip.background = element_blank())
 
 
+# Effect sizes
+mcmc = as.matrix(data.rstan.mult)
+newdata = expand.grid(cx1 = c(min(data$cx1), 
+                              max(data$cx1)), 
+                      cx2 = (-2:2) *sd(data$cx1))
+Xmat = model.matrix(~cx1 * cx2, newdata)
+coefs = mcmc[, c("beta0", "beta[1]", "beta[2]", "beta[3]")]
+fit = coefs %*% t(Xmat)
+s1 = seq(1, 9, b = 2)
+s2 = seq(2, 10, b = 2)
+## Raw effect size
+(RES = tidyMCMC(as.mcmc(fit[, s2] - fit[, s1]), 
+                conf.int = TRUE, 
+                conf.method = "HPDinterval"))
+
+## Cohen's D
+cohenD = (fit[, s2] - fit[, s1])/sqrt(mcmc[, "sigma"])
+(cohenDES = tidyMCMC(as.mcmc(cohenD), 
+                     conf.int = TRUE, 
+                     conf.method = "HPDinterval"))
+
+# Percentage change (relative to Group A)
+ESp = 100 * (fit[, s2] - fit[, s1])/fit[, s1]
+(PES = tidyMCMC(as.mcmc(ESp), conf.int = TRUE, conf.method = "HPDinterval"))
+
+# Probability that the effect is greater than 50% (an increase of >50%)
+(p50 = apply(ESp, 2, function(x) sum(x > 50)/length(x)))
+
+## fractional change
+(FES = tidyMCMC(as.mcmc(fit[, s2]/fit[, s1]), 
+                conf.int = TRUE, conf.method = "HPDinterval"))
 
 
+mcmc <- as.matrix(data.rstan.mult)
+Xmat = model.matrix(~cx1 * cx2, data)
+coefs = mcmc[, c("beta0", "beta[1]", "beta[2]", "beta[3]")]
+fit = coefs %*% t(Xmat)
+resid = sweep(fit, 2, data$y, "-")
+var_f = apply(fit, 1, var)
+var_e = apply(resid, 1, var)
+R2 = var_f/(var_f + var_e)
+tidyMCMC(as.mcmc(R2), conf.int = TRUE, conf.method = "HPDinterval")
 
+# for comparison with frequentest
+summary(lm(y ~ cx1 * cx2, data))
 
+modelStringHP = "
+data {
+int < lower =0 > n; // number of observations
+int < lower =0 > nX; // number of predictors
+vector [ n] Y; // outputs
+matrix [n ,nX] X; // inputs
+real < lower =0 > scale_icept ; // prior std for the intercept
+real < lower =0 > scale_global ; // scale for the half -t prior for tau
+real < lower =1 > nu_global ; // degrees of freedom for the half -t priors for tau
+real < lower =1 > nu_local ; // degrees of freedom for the half - t priors for lambdas
+real < lower =0 > slab_scale ; // slab scale for the regularized horseshoe
+real < lower =0 > slab_df ; // slab degrees of freedom for the regularized horseshoe
+}
+transformed data {
+matrix[n, nX - 1] Xc;  // centered version of X 
+vector[nX - 1] means_X;  // column means of X before centering 
+for (i in 2:nX) { 
+means_X[i - 1] = mean(X[, i]); 
+Xc[, i - 1] = X[, i] - means_X[i - 1]; 
+}  
+}
+parameters {
+real logsigma ;
+real cbeta0 ;
+vector [ nX-1] z;
+real < lower =0 > tau ; // global shrinkage parameter
+vector < lower =0 >[ nX-1] lambda ; // local shrinkage parameter
+real < lower =0 > caux ;
+}
+transformed parameters {
+real < lower =0 > sigma ; // noise std
+vector < lower =0 >[ nX-1] lambda_tilde ; // truncated local shrinkage parameter
+real < lower =0 > c; // slab scale
+vector [ nX-1] beta ; // regression coefficients
+vector [ n] mu; // latent function values
+sigma = exp ( logsigma );
+c = slab_scale * sqrt ( caux );
+lambda_tilde = sqrt ( c ^2 * square ( lambda ) ./ (c ^2 + tau ^2* square ( lambda )) );
+beta = z .* lambda_tilde * tau ;
+mu = cbeta0 + Xc* beta ;
+}
+model {
+// half -t priors for lambdas and tau , and inverse - gamma for c ^2
+z ~ normal (0 , 1);
+lambda ~ student_t ( nu_local , 0, 1);
+tau ~ student_t ( nu_global , 0 , scale_global * sigma );
+caux ~ inv_gamma (0.5* slab_df , 0.5* slab_df );
+cbeta0 ~ normal (0 , scale_icept );
+Y ~ normal (mu , sigma );
+}
+generated quantities { 
+real beta0;  // population-level intercept 
+vector[n] log_lik;
+beta0 = cbeta0 - dot_product(means_X, beta);
+for (i in 1:n) {
+log_lik[i] = normal_lpdf(Y[i] | Xc[i] * beta + cbeta0, sigma);
+}
+}
+"
+## write the model to a stan file 
+writeLines(modelStringHP, con = "linregModelHP.stan")
 
+X = model.matrix(~cx1 + cx2, data = data)
+data.list <- with(data, list(Y = y, X = X, nX = ncol(X), 
+                             n = nrow(data),
+                             scale_icept = 100, 
+                             scale_global = 1, 
+                             nu_global = 1, 
+                             nu_local = 1, 
+                             slab_scale = 2,
+                             slab_df = 4))
 
+data.rstan.sparsity <- stan(data = data.list, 
+                            file = "linregModelHP.stan", 
+                            pars = params,
+                            chains = nChains, 
+                            iter = nIter, 
+                            warmup = burnInSteps, 
+                            thin = thinSteps, 
+                            save_dso = TRUE)
 
+tidyMCMC(data.rstan.sparsity, 
+         pars = c("beta[1]", "beta[2]"), 
+         conf.int = TRUE,
+         conf.type = "HPDinterval", 
+         rhat = TRUE, ess = TRUE)
 
-
-
-
-
+mcmc_areas(as.matrix(data.rstan.sparsity), regex_par = "beta")
