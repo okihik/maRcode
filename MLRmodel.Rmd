@@ -120,10 +120,10 @@ obs_days   <- open_days + close_days
 anomTempC    <- as.numeric(sheet$hrTM - mean(sheet$hrTM))
 anomPrecipMM <- as.numeric(sheet$precip - mean(sheet$precip))
 
-# Data Frame -------------------------------------------------------------------
+# Set Data Frame All -----------------------------------------------------------
 df <- data.frame(
   # Obs. date and the restaurant close or not
-  date    = as.Date(sheet$date[1:obs_days]),
+  date    = as.Date(sheet$date),
   isClose = as.logical(sheet$isClose),
   # food loss and waste at the restaurant
   foodLossKg    = foodLossKg,
@@ -142,9 +142,32 @@ df <- data.frame(
   tempC        = as.numeric(sheet$hrTM),
   humidityPerc = as.numeric(sheet$hrHM),
   precipMM     = as.numeric(sheet$precip)#,
-  #anomTempC = anomTempC,
-  #anomPrecipMM = anomPrecipMM
 )
+
+# Set Restaurant Open Data only ------------------------------------------------
+df_open <- data.frame(
+  # Obs. date and the restaurant close or not
+  date    = as.Date(sheet$date[!dt$isClose]),
+  isClose = as.logical(sheet$isClose[!dt$isClose]),
+  # food loss and waste at the restaurant
+  foodLossKg    = foodLossKg[!dt$isClose],
+  allWasteKg    = allWasteKg[!dt$isClose],
+  liquidWasteKg = liquidWasteKg[!dt$isClose],
+  solidWasteKg  = solidWasteKg[!dt$isClose],
+  # types of orders
+  regularOrders = as.numeric(sheet$orders[!dt$isClose]),
+  miniOrders    = as.numeric(sheet$miniOrders[!dt$isClose]),
+  takeouts      = as.numeric(sheet$takeouts[!dt$isClose]),
+  # 
+  customer = as.numeric(sheet$customers[!dt$isClose]),
+  liquors  = as.numeric(sheet$liquors[!dt$isClose]),
+  sales    = as.numeric(sheet$sales[!dt$isClose]),
+  # weather conditions
+  tempC        = as.numeric(sheet$hrTM[!dt$isClose]),
+  humidityPerc = as.numeric(sheet$hrHM[!dt$isClose]),
+  precipMM     = as.numeric(sheet$precip[!dt$isClose])#,
+)
+
 ```
 
 ```{r week_preprocessing}
@@ -152,8 +175,8 @@ df <- data.frame(
 # create new vector for each week of day 
 week_day <- wday(df$date, label = TRUE)
 week_day <- factor(week_day, 
-levels = c("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"), 
-ordered = TRUE)
+                   levels = c("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"), 
+                   ordered = TRUE)
 week_day <- as.factor(week_day)
 
 # Assign 1; otherwise 0 --------------------------------------------------------
@@ -179,7 +202,7 @@ dt <- cbind(df, week_day, wkMat, week_day_end)
 ```
 
 
-```{r data_descriptive}
+```{r data_liquid_solid_descriptive}
 # This data frame for descriptive plots ----------------------------------------
 # Distinguish between liquid food waste and solid food waste
 # Assign "Liquid" and "Solid" as factor
@@ -1118,24 +1141,24 @@ dens_sales +
 ```
 
 
-# Correlation b/w Ind. vars.
+# Correlation b/w Dep. vars.
 ```{r correlation_ind.vars}
-# correlation between independent variables ------------------------------------
-str(dt)
-corr_ind <- round(cor(dt[c("foodLossKg",
+# correlation between dependent variables ------------------------------------
+# str(dt)
+corrDep <- round(cor(dt[c("foodLossKg",
                        "allWasteKg",
                        "liquidWasteKg",
                        "solidWasteKg")]), 
               2)
-corr_ind
+corrDep
 # correlation p-values ---------------------------------------------------------
-corr_ind_pValues <- round(cor_pmat(dt[c("foodLossKg",
+corrDep_pValues <- round(cor_pmat(dt[c("foodLossKg",
                                     "allWasteKg",
                                     "liquidWasteKg",
                                     "solidWasteKg")]),4)
-corr_ind_pValues
+corrDep_pValues
 
-ggcorrplot(corr_ind, type = "lower", lab = TRUE)
+ggcorrplot(corrDep, type = "lower", lab = TRUE)
 ```
 
 # Cross Correlation b/w food loss and food waste
@@ -1168,7 +1191,7 @@ grid.arrange(ccf_fl_all,ccf_fl_liq,ccf_fl_sol,
 ```{r correlation_exp.vars_pval}
 # correlation between independent variables ------------------------------------
 str(dt)
-corr_exp <- round(cor(dt[c("tempC",
+corrExp <- round(cor(dt[c("tempC",
                           "humidityPerc",
                           "precipMM",
                           "tue",
@@ -1180,9 +1203,9 @@ corr_exp <- round(cor(dt[c("tempC",
                           "customer",
                           "sales",
                           "liquors")]),2)
-corr_exp
+corrExp
 # correlation p-values ---------------------------------------------------------
-corr_exp_pValues <- round(cor_pmat(dt[c("tempC",
+corrExp_pValues <- round(cor_pmat(dt[c("tempC",
                                        "humidityPerc",
                                        "precipMM",
                                        "tue",
@@ -1194,10 +1217,22 @@ corr_exp_pValues <- round(cor_pmat(dt[c("tempC",
                                        "customer",
                                        "sales",
                                        "liquors")]),4)
-corr_exp_pValues
+corrExp_pValues
 
-ggcorrplot(corr_exp, type = "lower", lab = TRUE)
+ggcorrplot(corrExp, type = "lower", lab = TRUE)
 ```
+
+```{r correlation_matrix}
+# ---------------------------------------------
+ggcorrplot(corr, hc.order = TRUE, type = "lower", lab = TRUE)
+# # Barring the no significant coefficient ======
+# ggcorrplot(corr, hc.order = TRUE, type = "lower", 
+# p.mat = corr_pValues)
+# # Leave blank on no significant coefficient ------------------------------------
+# ggcorrplot(corr, p.mat = corr_pValues, hc.order = TRUE,
+# type = "lower", insig = "blank")
+```
+
 
 
 # ACF and PACF
@@ -1628,8 +1663,8 @@ control = list(adapt_delta = 0.97, max_treedepth = 15)
 
 # Estimation Result of Seasonal Structure Model --------------------------------
 print(basic_structual, 
-      par = c("s_z", "s_s", "s_v", "lp__"),
-      probs = c(0.025, 0.5, 0.975))
+par = c("s_z", "s_s", "s_v", "lp__"),
+probs = c(0.025, 0.5, 0.975))
 
 
 # Check for Convergence --------------------------------------------------------
