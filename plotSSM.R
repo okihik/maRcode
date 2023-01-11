@@ -11,12 +11,11 @@ plotSSM <- function(
   y_label,
   date_labels = "%Y %m") 
   {
-  result_df <- data.frame(t(apply(
-    X = mcmc_sample[[state_name]],
-    MARGIN = 2,
-    quantile,
-    probs = c(0.025,0.5,0.975)
-  )))
+  result_df <- data.frame(
+    t(apply(X = state_name,
+            MARGIN = 2,
+            quantile,
+            probs = c(0.025,0.5,0.975))))
   
   colnames(result_df) <- c("lwr","fit","upr")
   

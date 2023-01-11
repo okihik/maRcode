@@ -117,8 +117,8 @@ obs_days   <- open_days + close_days
 
 
 # Anomalies on weather condition variables: X - X_bar --------------------------
-anomTempC    <- as.numeric(sheet$hrTM - mean(sheet$hrTM))
-anomPrecipMM <- as.numeric(sheet$precip - mean(sheet$precip))
+# anomTempC    <- as.numeric(sheet$hrTM - mean(sheet$hrTM))
+# anomPrecipMM <- as.numeric(sheet$precip - mean(sheet$precip))
 
 # Data Frame -------------------------------------------------------------------
 df <- data.frame(
