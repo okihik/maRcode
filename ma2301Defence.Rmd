@@ -14,8 +14,10 @@ output:
 header-includes: 
 - \definecolor{unbc}{HTML}{035642}
 - \setbeamercolor{structure}{fg=unbc}
-- \pgfdeclareimage[height=.5cm]{logoUNBC}{~/Library/CloudStorage/OneDrive-UNBC/00MAthesis/maRcode/maRcode/Official-UNBC-Logo/Green UNBC Logo/logo_green.tif}
-- \logo{\pgfuseimage{logoUNBC}}
+- \setbeamertemplate{navigation symbols}{}
+- \setbeamertemplate{footline}[page number]
+#- \pgfdeclareimage[height=.5cm]{logoUNBC}{~/Library/CloudStorage/OneDrive-UNBC/00MAthesis/maRcode/maRcode/Official-UNBC-Logo/Green UNBC Logo/logo_green.tif}
+#- \logo{\pgfuseimage{logoUNBC}}
 ---
 
 ```{r setup, include=FALSE}
