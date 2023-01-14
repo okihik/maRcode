@@ -14,6 +14,8 @@ output:
 header-includes: 
 - \definecolor{unbc}{HTML}{035642}
 - \setbeamercolor{structure}{fg=unbc}
+- \pgfdeclareimage[height=.5cm]{logoUNBC}{~/Library/CloudStorage/OneDrive-UNBC/00MAthesis/maRcode/maRcode/Official-UNBC-Logo/Green UNBC Logo/logo_green.tif}
+- \logo{\pgfuseimage{logoUNBC}}
 ---
 
 ```{r setup, include=FALSE}
@@ -24,9 +26,9 @@ knitr::opts_chunk$set(echo = FALSE)
 
 ## Introduction
 
-This is an R Markdown presentation. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document.
+- Bullet 1
+- Bullet 2
+- Bullet 3
 
 # Objectives
 
@@ -36,25 +38,31 @@ When you click the **Knit** button a document will be generated that includes bo
 - Bullet 2
 - Bullet 3
 
-# Literature Reviews
+# Literature Review
 
-## Literature Reviews
+## Literature Review
 
-```{r cars, echo = TRUE}
-summary(cars)
-```
+- Bullet 1
+- Bullet 2
+- Bullet 3
 
 # Methods
 
 ## Methods
 
-```{r pressure}
-plot(pressure)
-```
+- Bullet 1
+- Bullet 2
+- Bullet 3
 
 # Expected Results
 
 ## Expected Results
 
-- AAA
-- 
+### Current Progress
+
+- Bullet 1
+- Bullet 2
+- Bullet 3
+
+
+# References
