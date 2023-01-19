@@ -224,6 +224,19 @@ data.frame(food_waste_all    = c(summary(dt$allWasteKg[!dt$isClose])),
 # Time Series Plot on all, liquid, and solid food waste ------------------------
 tsPlot <- 
   ggplot() +
+  geom_line(data = dt, aes(x = date, y = allWasteKg+foodLossKg), color="black") +
+  geom_point() +
+  xlab("Date") +
+  ylab("Daily Food Loss and Waste (kg)") +
+  ggtitle("Daily Food Loss and Waste Trend")
+tsPlot
+```
+
+
+```{r tsPlot}
+# Time Series Plot on all, liquid, and solid food waste ------------------------
+tsPlot_waste <- 
+  ggplot() +
   geom_line(data = dt, aes(x = date, y = allWasteKg), color="black") +
   #geom_line(data = dt, aes(x = date, y = liquidWasteKg), color="orange", linetype = "dotted") +
   geom_line(data = dt, aes(x = date, y = solidWasteKg), 
@@ -232,8 +245,9 @@ tsPlot <-
   xlab("Date") +
   ylab("Daily Food Waste (kg)") +
   ggtitle("Daily Food Waste Trend")
-tsPlot
+tsPlot_waste
 ```
+
 
 ```{r X_tsPlot_customer}
 # # Time Series Plot on all, liquid, and solid food waste
@@ -251,6 +265,25 @@ tsPlot
 # tsPlot
 ```
 
+```{r histogram_all}
+# Histogram on all food waste and loss -----------------------------------------
+hist_all_LossWasteKg <- 
+  ggplot(data = dt, aes(x = allWasteKg+foodLossKg)) +
+  geom_histogram(aes(y = ..density..), bins = 30, colour = 1, fill = "white") +
+  geom_density(linewidth = 1.5, colour = 4, fill = 4, alpha = 0.25) +
+  labs(title = "Daily Food Loss and Waste - Histogram and Kernel Density Estimation")
+hist_all_LossWasteKg
+```
+
+```{r histogram_all}
+# Histogram on all food loss----------------------------------------------------
+hist_all_LossWasteKg <- 
+  ggplot(data = dt, aes(x = foodLossKg)) +
+  geom_histogram(aes(y = ..density..), bins = 30, colour = 1, fill = "white") +
+  geom_density(linewidth = 1.5, colour = 4, fill = 4, alpha = 0.25) +
+  labs(title = "Daily Food Loss - Histogram and Kernel Density Estimation")
+hist_all_LossWasteKg
+```
 
 ```{r histogram_all}
 # Histogram on all food waste --------------------------------------------------
@@ -304,15 +337,21 @@ hist_liquidWasteKg
 hist_log_liquid_waste <- 
   ggplot(data = dt, aes(x = log(liquidWasteKg))) +
   geom_histogram(aes(y = ..density..), bins = 30, colour = 1, fill = "orange") +
-  labs(title = "Logged Daily Liquid Food Waste - Histogram")
-hist_log_liquid_waste
-
-kernel_hist_log_liquid_waste <- 
-  hist_log_liquid_waste +
+  # labs(title = "Logged Daily Liquid Food Waste - Histogram")
   geom_density(data = dt,mapping = aes(x = log(liquidWasteKg)),
                size = 1.5, colour = 4, fill = 4, alpha = 0.25) +
   labs(title = "Logged Daily Liquid Food Waste - Histogram and Kernel Density Estimation")
-kernel_hist_log_liquid_waste
+hist_log_liquid_waste
+
+# Log +1  transformed Histogram
+hist_log_liquid_waste <- 
+  ggplot(data = dt, aes(x = log(liquidWasteKg+1))) +
+  geom_histogram(aes(y = ..density..), bins = 30, colour = 1, fill = "orange") +
+  # labs(title = "Logged Daily Liquid Food Waste - Histogram")
+  geom_density(data = dt,mapping = aes(x = log(liquidWasteKg+1)),
+               size = 1.5, colour = 4, fill = 4, alpha = 0.25) +
+  labs(title = "Logged Daily Liquid Food Waste - Histogram and Kernel Density Estimation")
+hist_log_liquid_waste
 
 # # Liquid Food Waste per Person transformed Histogram
 # hist_liquidWasteKg_cus <- ggplot(data = dt, aes(x = liquidWasteKg/customer)) +
@@ -423,6 +462,41 @@ density_week_sl <-
   x = "Food Waste in Kg", y = "Density")
 density_week_sl
 ```
+
+```{r}
+# Compare All Food Loss in Weekday and Weekend----------------------------------
+# F test (equal var)
+var.test(dt$foodLossKg[week_day_end==1], 
+         dt$foodLossKg[week_day_end==-1],alternative = "two.sided")
+# Welch t test
+t.test(dt$foodLossKg[week_day_end==1], 
+       dt$foodLossKg[week_day_end==-1], var.equal = FALSE)
+
+## Compare All Food Waste in Weekday and Weekend--------------------------------
+# F test (equal var)
+var.test(dt$allWasteKg[week_day_end==1], 
+         dt$allWasteKg[week_day_end==-1],alternative = "two.sided")
+# Welch t test
+t.test(dt$allWasteKg[week_day_end==1], 
+       dt$allWasteKg[week_day_end==-1], var.equal = FALSE)
+
+## Compare liquid Food Waste in Weekday and Weekend--------------------------------
+# F test (equal var)
+var.test(dt$liquidWasteKg[week_day_end==1], 
+         dt$liquidWasteKg[week_day_end==-1],alternative = "two.sided")
+# Welch t test
+t.test(dt$liquidWasteKg[week_day_end==1], 
+       dt$liquidWasteKg[week_day_end==-1], var.equal = FALSE)
+
+## Compare solid Food Waste in Weekday and Weekend--------------------------------
+# F test (equal var)
+var.test(dt$solidWasteKg[week_day_end==1], 
+         dt$solidWasteKg[week_day_end==-1],alternative = "two.sided")
+# Welch t test
+t.test(dt$solidWasteKg[week_day_end==1], 
+       dt$solidWasteKg[week_day_end==-1], var.equal = TRUE)
+```
+
 
 ```{r X_boxplot_week_all}
 # boxplot of week of day for all food waste per customer -----------------------
@@ -894,9 +968,10 @@ scatter_plot_waste_liquor <-
   geom_smooth(method="lm", formula = y ~ x, fullrange=TRUE) +
   geom_rug() +
   scale_y_continuous(name = "Daily Food Waste (kg)",
-  limits = c(0, 7), expand = c(0.05, 0)) +
+                     limits = c(0, 10), expand = c(0.05, 0)) +
   scale_x_continuous(name = "Daily Number of Liquor Sales",
-  limits = c(0, 7), expand = c(0.05, 0)) +
+                     limits = c(0, 10), expand = c(0.05, 0),
+                     breaks = c(0:9)) +
   theme_pubr() +
   theme(legend.position = c(0.15, 0.9))
 #scatter_plot_waste_liquor
@@ -932,9 +1007,10 @@ scatter_plot_waste_liqr_sl <-
   geom_smooth(method="lm", formula = y~x, fullrange=TRUE) +
   geom_rug() +
   scale_y_continuous(name = "Daily Food Waste (kg)",
-  limits = c(0, 5), expand = c(0.05, 0)) +
+                     limits = c(0, 10), expand = c(0.05, 0)) +
   scale_x_continuous(name = "Daily Number of Liquor Sales",
-  limits = c(0, 7), expand = c(0.05, 0)) +
+                     limits = c(0, 10), expand = c(0.05, 0),
+                     breaks = c(0:9)) +
   theme_pubr() +
   theme(legend.position = c(0.15, 0.9))
 #scatter_plot_waste_liqr_sl
@@ -1142,22 +1218,22 @@ ggcorrplot(corr_ind, type = "lower", lab = TRUE)
 ```{r cross_cor_ind.vars}
 ccf_fl_all <- 
   ggCcf(dt$foodLossKg,dt$allWasteKg) +
-  labs(title = "Cross Correlation Plot: Food Loss vs. All Food Waste")
+  labs(title = "Cross Corr Plot: Food Loss vs. All Food Waste")
 ccf_fl_liq <-
   ggCcf(dt$foodLossKg,dt$liquidWasteKg) +
-  labs(title = "Cross Correlation Plot: Food Loss vs. Liquid Food Waste")
+  labs(title = "Cross Corr Plot: Food Loss vs. Liquid Food Waste")
 ccf_fl_sol <-
   ggCcf(dt$foodLossKg,dt$solidWasteKg) +
-  labs(title = "Cross Correlation Plot: Food Loss vs. Solid Food Waste")
+  labs(title = "Cross Corr Plot: Food Loss vs. Solid Food Waste")
 ccf_all_liq <-
   ggCcf(dt$allWasteKg,dt$liquidWasteKg) +
-  labs(title = "Cross Correlation Plot: All Food Waste vs. Liquid Food Waste")
+  labs(title = "Cross Corr Plot: All Food Waste vs. Liquid Food Waste")
 ccf_all_sol <-
   ggCcf(dt$allWasteKg,dt$solidWasteKg) +
-  labs(title = "Cross Correlation Plot: All Food Waste vs. Solid Food Waste")
+  labs(title = "Cross Corr Plot: All Food Waste vs. Solid Food Waste")
 ccf_liq_sol <-
   ggCcf(dt$liquidWasteKg,dt$solidWasteKg) +
-  labs(title = "Cross Correlation Plot: liquid Food Waste vs. Solid Food Waste")
+  labs(title = "Cross Corr Plot: liquid Food Waste vs. Solid Food Waste")
 
 grid.arrange(ccf_fl_all,ccf_fl_liq,ccf_fl_sol,
              ccf_all_liq,ccf_all_sol,ccf_liq_sol)
@@ -1530,7 +1606,7 @@ nrow(dt)
 # ------------------------------------------------------------------------------
 print(time_varying_coef_stan,
       pars = c("s_alpha", "s_beta_temp", "s_beta_humi", "s_obs",
-               "beta_temp[92]","beta_humi[92]"),
+               "beta_temp[105]","beta_humi[105]"),
       probs = c(0.025, 0.5, 0.975))
 
 # ------------------------------------------------------------------------------
@@ -1553,26 +1629,32 @@ mcmc_sample <- rstan::extract(time_varying_coef_stan)
 
 # ------------------------------------------------------------------------------
 p_all <- plotSSM(mcmc_sample = mcmc_sample, 
-time_vec = dt$date, 
-obs_vec = dt$allWasteKg,
-state_name = "mu", 
-graph_title = "Estimation of State", 
-y_label = "All Food Waste in Kg") 
+                 time_vec = dt$date, 
+                 obs_vec = dt$allWasteKg,
+                 state_name <- mcmc_sample$mu, 
+                 graph_title = "Estimation of State", 
+                 y_label = "All Food Waste in Kg") 
 
 p_a <- plotSSM(mcmc_sample = mcmc_sample, 
-time_vec = dt$date, 
-obs_vec = dt$allWasteKg,
-state_name = "alpha", 
-graph_title = "Estimation of no advertisement effect", 
-y_label = "All Food Waste in Kg") 
+               time_vec = dt$date, 
+               obs_vec = dt$allWasteKg,
+               state_name <- mcmc_sample$alpha, 
+               graph_title = "Estimation of Level", 
+               y_label = "All Food Waste in Kg") 
 
-p_b <- plotSSM(mcmc_sample = mcmc_sample, 
-time_vec = dt$date,
-state_name = "beta", 
-graph_title = "Estimation of change in adv. effect", 
-y_label = "coef") 
+p_b1 <- plotSSM(mcmc_sample = mcmc_sample, 
+               time_vec = dt$date,
+               state_name = mcmc_sample$beta_temp, 
+               graph_title = "Estimation of change in temperature effect", 
+               y_label = "coef temp") 
 
-grid.arrange(p_all, p_a, p_b)
+p_b2 <- plotSSM(mcmc_sample = mcmc_sample, 
+               time_vec = dt$date,
+               state_name = mcmc_sample$beta_humi, 
+               graph_title = "Estimation of change in humidity effect", 
+               y_label = "coef humidity") 
+
+grid.arrange(p_all, p_a, p_b1, p_b2)
 
 ```
 
@@ -1590,9 +1672,9 @@ dt$date <- as.POSIXct(dt$date,format(dt$date,format = "%d/%m/%y"))
 head(dt, n = 13)
 
 data_list <- list(
-y = dt$allWasteKg, 
-ex = dt$tempC, 
-T = nrow(dt)
+  y = dt$allWasteKg, 
+  ex = dt$tempC, 
+  T = nrow(dt)
 )
 ```
 
@@ -1611,19 +1693,19 @@ autoplot(ts(dt[,c("allWasteKg"
 
 # Data Preprocessing -----------------------------------------------------------
 data_list <- list(
-y = sales_df_4$sales, 
-T = nrow(sales_df_4)
+  y = sales_df_4$sales, 
+  T = nrow(sales_df_4)
 )
 
 # Estimation of Seasonal Structure Model ---------------------------------------
 basic_structual <- stan(
-file = "season.stan",
-data = data_list,
-seed = 1,
-iter = 8000,
-warmup = 2000,
-thin = 6,
-control = list(adapt_delta = 0.97, max_treedepth = 15)
+  file = "season.stan",
+  data = data_list,
+  seed = 1,
+  iter = 8000,
+  warmup = 2000,
+  thin = 6,
+  control = list(adapt_delta = 0.97, max_treedepth = 15)
 )
 
 # Estimation Result of Seasonal Structure Model --------------------------------
