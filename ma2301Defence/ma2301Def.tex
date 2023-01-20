@@ -219,6 +219,35 @@ Food Waste by US & Subcomponent of FL \\
 
 \begin{frame}{Literature Review}
 \protect\hypertarget{literature-review-2}{}
+\begin{block}{Definition of FLW}
+\protect\hypertarget{definition-of-flw-1}{}
+\begin{longtable}[]{@{}lllll@{}}
+\toprule()
+1 & 2 & 3 & 4 & 5 \\
+\midrule()
+\endhead
+Production & Handling & Process & Distribution & Consumption \\
+\textless-- & FL & --\textgreater{} & \textless-- & FW
+--\textgreater{} \\
+\textless-- & -- & FLW & -- & --\textgreater{} \\
+\bottomrule()
+\end{longtable}
+
+\begin{longtable}[]{@{}llll@{}}
+\toprule()
+Organizations & FL & FW & Subset \\
+\midrule()
+\endhead
+FAO & First 3 stages & Last 2 stages & X \\
+EU & None & All & X \\
+US & All & Last 2 stages & O \\
+\bottomrule()
+\end{longtable}
+\end{block}
+\end{frame}
+
+\begin{frame}{Literature Review}
+\protect\hypertarget{literature-review-3}{}
 \begin{block}{Five Measurements of FLW}
 \protect\hypertarget{five-measurements-of-flw}{}
 \begin{longtable}[]{@{}ll@{}}
@@ -242,7 +271,7 @@ Method & Note \\
 \end{frame}
 
 \begin{frame}{Literature Review}
-\protect\hypertarget{literature-review-3}{}
+\protect\hypertarget{literature-review-4}{}
 \begin{block}{Statistic Model}
 \protect\hypertarget{statistic-model}{}
 \begin{itemize}
@@ -265,7 +294,7 @@ Method & Note \\
 \end{frame}
 
 \begin{frame}{Literature Review}
-\protect\hypertarget{literature-review-4}{}
+\protect\hypertarget{literature-review-5}{}
 \begin{block}{Effects of Food Loss and Waste}
 \protect\hypertarget{effects-of-food-loss-and-waste}{}
 \begin{itemize}
@@ -283,17 +312,18 @@ Method & Note \\
 \end{frame}
 
 \begin{frame}{Literature Review}
-\protect\hypertarget{literature-review-5}{}
+\protect\hypertarget{literature-review-6}{}
 \begin{block}{Hypotheses}
 \protect\hypertarget{hypotheses}{}
 \begin{itemize}
 \tightlist
 \item
-  Bullet 1
+  Estimate average FLW
 \item
-  Bullet 2
+  Any patterns between FLW and business operations
 \item
-  Bullet 3
+  Any patterns between FLW and weather conditions
+\item
 \end{itemize}
 \end{block}
 \end{frame}
@@ -310,7 +340,7 @@ Method & Note \\
 \item
   Japanese restaurant in Prince George
 \item
-  open for lunch and dinner for three hours each, six days of a week
+  lunch and dinner for three hours each, six days of a week
 \end{itemize}
 \end{block}
 \end{frame}
@@ -346,31 +376,48 @@ Method & Note \\
 \protect\hypertarget{methods-4}{}
 \begin{block}{Variables}
 \protect\hypertarget{variables}{}
-\begin{itemize}
-\tightlist
-\item
-  Bullet 1
-\item
-  Bullet 2
-\item
-  Bullet 3
-\end{itemize}
+\begin{longtable}[]{@{}ll@{}}
+\toprule()
+Variables & Note \\
+\midrule()
+\endhead
+1.Food Loss & Daily disposed food by kitchen \\
+2.Liquid Food Waste & Daily disposed liquid food by customers \\
+3.Solid Food Waste & Daily disposed solid food by customers \\
+4.Number of Customers & Daily Number of dine-in customers \\
+5.Sales & Daily sales \\
+6.Liquor & Daily Number of liquors sold \\
+7.Takeouts & Daily Number of takeout sold \\
+8.Orders & Daily Number of orders sold \\
+9.Temperature & Hourly mean temperature each day \\
+10.Humidity & Hourly mean humidity each day \\
+11.Precipitation & Precipitation each day \\
+\bottomrule()
+\end{longtable}
 \end{block}
 \end{frame}
 
 \begin{frame}{Methods}
 \protect\hypertarget{methods-5}{}
-\begin{block}{Model}
-\protect\hypertarget{model}{}
-\begin{itemize}
-\tightlist
-\item
-  Bullet 1
-\item
-  Bullet 2
-\item
-  Bullet 3
-\end{itemize}
+\begin{block}{Multiple Linear Regression Model (additive)}
+\protect\hypertarget{multiple-linear-regression-model-additive}{}
+\[
+\begin{aligned}
+Y_i &= \beta x_i + \epsilon_i\\
+\epsilon_i &\overset{\text{i.i.d.}}{\sim} N(\mu=0, \sigma^2).
+\end{aligned}
+\]
+\end{block}
+
+\begin{block}{Baysian Modelling}
+\protect\hypertarget{baysian-modelling}{}
+\[
+\begin{aligned}
+Y_i &= \beta_i x_i + \epsilon_i\\
+\beta_{i} &\sim N(\beta_{i-1}, \sigma_{\beta}^2)\\
+\epsilon_i &\sim N(0, \sigma_{y}^2).
+\end{aligned}
+\]
 \end{block}
 \end{frame}
 
@@ -381,6 +428,15 @@ Method & Note \\
 \protect\hypertarget{expected-results-1}{}
 \begin{block}{Expected Results}
 \protect\hypertarget{expected-results-2}{}
+\begin{itemize}
+\tightlist
+\item
+  Estimations of FLW in a restaurant
+\item
+  Patterns of FLW
+\item
+  Implications of FLW reduction
+\end{itemize}
 \end{block}
 \end{frame}
 
@@ -395,13 +451,43 @@ Method & Note \\
 \item
   Collected over 100 samples.
 \item
-\item
-  Bullet 3
+  Basic analysis (Histogram, Time series plots)
 \end{itemize}
 \end{block}
 \end{frame}
 
+\begin{frame}{Expected Results}
+\protect\hypertarget{expected-results-4}{}
+\begin{block}{TODO}
+\protect\hypertarget{todo}{}
+\begin{itemize}
+\tightlist
+\item
+  Develop potential causes of FLW (weather)
+\item
+\item
+\end{itemize}
+\end{block}
+\end{frame}
+
+\hypertarget{acknowledgements}{%
+\section{Acknowledgements}\label{acknowledgements}}
+
+\begin{frame}{Acknowledgements}
+\protect\hypertarget{acknowledgements-1}{}
+I would like to express my gratitude to my supervisor, Dr.~Balbinder
+Deo, and to the committee member for his support and encouragement in my
+initial thesis development. I would also like to thank the University of
+Northern British Columbia and Prince George for allowing me an
+opportunity to pursue graduate studies.
+\end{frame}
+
 \hypertarget{references}{%
 \section{References}\label{references}}
+
+\begin{frame}{References}
+\protect\hypertarget{references-1}{}
+{[}1{]} {[}2{]} {[}3{]} {[}4{]} {[}5{]}
+\end{frame}
 
 \end{document}
