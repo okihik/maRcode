@@ -14,19 +14,20 @@ y_sim <- rnorm(Nsample,mean = m,sd = sqrt(v))
 
 simData <- data.frame(x = x_sim,y=y_sim)
 autoplot(ts(simData[,c(1,2)]))
+
 mod <- lm(y ~ x, data = simData)
 summary(mod)
 
-# Purious Regression ------------------------------------------------------------
+# Spurious Regression ------------------------------------------------------------
 x_sim_rw <- cumsum(rnorm(Nsample))
 y_sim_rw <- cumsum(rnorm(Nsample))
+simData_rw <- data.frame(x_rw = x_sim_rw,
+                         y_rw = y_sim_rw)
 
-
-
-simData_rw <- data.frame(x_rw = x_sim_rw,y_rw=y_sim_rw)
 ggplot(simData_rw, aes(x=x_rw)) + geom_histogram()
 ggplot(simData_rw, aes(x=y_rw)) + geom_histogram()
 autoplot(ts(simData_rw[,c(1,2)]))
+
 mod <- lm(y_rw ~ x_rw, data = simData_rw)
 summary(mod)
 plot(mod)
@@ -38,7 +39,7 @@ plot(mod)
 #--------------------------------------------------------------------------------
 
 # Number of simulation runs
-Nsim <- 200
+Nsim <- 100
 
 # Set vectors
 # x_sim <- y_sim <- matrix(, nrow = Nsample, ncol = Nsim)

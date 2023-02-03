@@ -84,7 +84,7 @@ isValidSheet(sheet)
 ```
 
 
-```{r data_preprocessing}
+```{r flw_calc_open__preprocessing}
 ## remove apparatus weights
 # Create vectors for food loss and waste observations --------------------------
 foodLossKg <- allWasteKg <- liquidWasteKg <- solidWasteKg <- numeric()
@@ -152,20 +152,39 @@ df <- data.frame(
 # formula: daily food waste rate = all food waste / daily input food
 # all food waste = daily solid and liquid food waste
 # daily input food = one bowl weigh * (regular order + 1/2 mini orders)
-ONE_BOWL_KG = 1
-dailyInputKg = ONE_BOWL_KG * (df$regularOrders + df$miniOrders / 2)
-daily_waste_rate = dt$allWasteKg / dailyInputKg
 
-OONE_BOWL_SOUP_KG = 0.5
-inputLiquidKg = OONE_BOWL_SOUP_KG * (df$regularOrders + df$miniOrders / 2)
+ONE_BOWL_KG = 1
+ONE_BOWL_SOUP_KG = 0.5
+
+dailyInputKg  = ONE_BOWL_KG * (df$regularOrders + df$miniOrders / 2)
+consumptionKg = dailyInputKg - allWasteKg
+wasteRate = df$allWasteKg / dailyInputKg
+
+inputLiquidKg = ONE_BOWL_SOUP_KG * (df$regularOrders + df$miniOrders / 2)
 
 two_ma_foodLossKg <- numeric(length(foodLossKg)-1)
-for (t in 1:length(foodLossKg)-1){
-  temp <- numeric()
-  temp <- (foodLossKg[t] + foodLossKg[t+1]) / 2
-  two_ma_foodLossKg[t] <- ifelse(is.nan(temp), 0, temp)
+myMA <- function(arr,n=2){
+  ma <- arr
+  for(i in n: length(arr)){
+    ma[i] <- mean(arr[(i-n):i])
+  }
+  return(ma)
 }
+two_ma_foodLossKg <- myMA(foodLossKg,2)
+# for (t in 1:length(foodLossKg)-1){
+#   temp <- numeric()
+#   temp <- (foodLossKg[t] + foodLossKg[t+1]) / 2
+#   two_ma_foodLossKg[t] <- ifelse(is.nan(temp), 0, temp)
+# }
 daily_hidden_loss_rate = liquidWasteKg[1:length(foodLossKg)-1] / two_ma_foodLossKg
+
+# Plot beta distribution -------------------------------------------------------
+#define domain area
+p = seq(0, 1, length=100)
+# plot beta probability distribution daily food waste rate
+plot(p, dbeta(p, allWasteKg[1], consumptionKg[1]), type='l')
+# plot beta probability distribution daily food waste rate
+plot(p, dbeta(p, sum(allWasteKg), sum(consumptionKg)), type='l')
 ```
 
 
@@ -1561,12 +1580,33 @@ raw.spec <- list(spec.pgram(dt$solidWasteKg, spans = 5))
 #dt$week_day <- as.factor(dt$week_day)
 dt$week_day<- factor(week_day, ordered = FALSE)
 #mlm_all <- allWasteKg ~ anomTempC + humidityPerc + anomPrecipMM + liquors + week_day
-mlm_all <- allWasteKg ~ tempC + humidityPerc + precipMM + sales + customer + liquors + week_day
-ml_all <- lm(mlm_all, data = dt)
-summary(ml_all)
+all_thpsclw <- allWasteKg ~ tempC + humidityPerc + precipMM + week_day+ sales + customer + liquors 
+all_thpcw   <- allWasteKg ~ tempC + humidityPerc + precipMM + week_day+ customer
+all_thpsw   <- allWasteKg ~ tempC + humidityPerc + precipMM + week_day+ sales
+all_thplw   <- allWasteKg ~ tempC + humidityPerc + precipMM + week_day+ liquors
+all_thpclw  <- allWasteKg ~ tempC + humidityPerc + precipMM + week_day+ customer + liquors
+all_thpslw  <- allWasteKg ~ tempC + humidityPerc + precipMM + week_day+ sales + liquors
+all_thpscw  <- allWasteKg ~ tempC + humidityPerc + precipMM + week_day+ sales + customer
+all_thpw    <- allWasteKg ~ tempC + humidityPerc + precipMM + week_day
 
-# dt %>%
-# do(tidy(lm(mlm_all, data = dt)))
+all_mod <- lm(all_thpsclw,data = dt)
+all_thpsclw_mods <- lm(formula = all_thpsclw, data = dt)
+all_thpcw_mods   <- lm(formula = all_thpcw,   data = dt)
+all_thpsw_mods   <- lm(formula = all_thpsw,   data = dt)
+all_thplw_mods   <- lm(formula = all_thplw,   data = dt)
+all_thpclw_mods  <- lm(formula = all_thpclw,  data = dt)
+all_thpslw_mods  <- lm(formula = all_thpslw,  data = dt)
+all_thpscw_mods  <- lm(formula = all_thpscw,  data = dt)
+all_thpw_mods    <- lm(formula = all_thpw,    data = dt)
+summary(all_mod)
+summary(all_thpsclw_mods)
+summary(all_thpcw_mods)
+summary(all_thpsw_mods)
+summary(all_thplw_mods)
+summary(all_thpclw_mods)
+summary(all_thpslw_mods)
+summary(all_thpscw_mods)
+summary(all_thpw_mods)
 ```
 
 ## Assumption check
