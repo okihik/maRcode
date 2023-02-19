@@ -1,23 +1,13 @@
-# Input
-#
-#
-# Output ggplot2 graph
-plotSSM <- function(
-  mcmc_sample,       #: MCMC sample
-  time_vec,          #: time series POSIXct vector
-  obs_vec = NULL,
-  state_name,
-  graph_title,
-  y_label,
-  date_labels = "%Y %m") 
-  {
-  result_df <- data.frame(
-    t(apply(X = state_name,
-            MARGIN = 2,
-            quantile,
-            probs = c(0.025,0.5,0.975))))
+plotSSM <- function(mcmc_sample, time_vec, obs_vec = NULL,
+                    state_name, graph_title, y_label,
+                    date_labels = "%Y-%m"){
+
+  result_df <- data.frame(t(apply(
+    X = mcmc_sample[[state_name]],
+    MARGIN = 2, quantile, probs = c(0.025, 0.5, 0.975)
+  )))
   
-  colnames(result_df) <- c("lwr","fit","upr")
+  colnames(result_df) <- c("lwr", "fit", "upr")
   
   result_df$time <- time_vec
   
@@ -33,11 +23,9 @@ plotSSM <- function(
     scale_x_datetime(date_labels = date_labels)
   
   if(!is.null(obs_vec)){
-    p <- p + 
-      geom_point(alpha = 0.6, 
-                 size = 0.9, 
-                 data = result_df, 
-                 aes(x = time, y = obs))
+    p <- p + geom_point(alpha = 0.6, size = 0.9, 
+                        data = result_df, aes(x = time, y = obs))
   }
+  
   return(p)
 }

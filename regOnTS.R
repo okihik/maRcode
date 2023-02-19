@@ -1,101 +1,279 @@
-# One simple sample True and Spurious Regression --------------------------------
+## One simple sample True and Spurious Regression --------------------------------
 # Checking p-values of regression coefficients by simulation
-#--------------------------------------------------------------------------------
+##--------------------------------------------------------------------------------
+library(ggplot2)
+library(ggpubr)
+library(gridExtra)
+library(rstan)
 
-# correct test ------------------------------------------------------------------
+## No relationship --------------------------------------------------------------
 # set rand 
 set.seed(1)
 m = 0  # mean
 v = 10 # variance
 Nsample <- 400 # sample size
 
-x_sim <- rnorm(Nsample,mean = m,sd = sqrt(v))
-y_sim <- rnorm(Nsample,mean = m,sd = sqrt(v))
+# simulate two sets of data
+x_sim   <- rnorm(Nsample, mean = m, sd = sqrt(v))
+y_sim   <- rnorm(Nsample, mean = m, sd = sqrt(v))
+simData <- data.frame(x = as.numeric(x_sim),
+                      y = as.numeric(y_sim))
 
-simData <- data.frame(x = x_sim,y=y_sim)
-autoplot(ts(simData[,c(1,2)]))
+# visualization
+autoplot(ts(simData[,c(1,2)])) # Time series
+#ggplot(simData, aes(x=x,y=y)) + geom_point() # 2D scatter plot
+scatter <-ggscatter(simData,x="x",y="y", 
+                    color = "black", shape = 16, size = 2,
+                    add = "reg.line",
+                    add.params = list(color = "blue", fill = "lightgray"),
+                    conf.int = TRUE,cor.coef = TRUE) +
+  ggtitle("No association")
 
-mod <- lm(y ~ x, data = simData)
+# Linear Regression Analysis
+mod <- lm(y ~., data = simData) # fitted linear model 
 summary(mod)
 
-# Spurious Regression ------------------------------------------------------------
-x_sim_rw <- cumsum(rnorm(Nsample))
-y_sim_rw <- cumsum(rnorm(Nsample))
+## Spurious Regression ----------------------------------------------------------
+# generate random-walk data
+# Data that adds a random value at the current point
+# to the value at the previous point in time.
+x_sim_rw   <- cumsum(rnorm(Nsample)) 
+y_sim_rw   <- cumsum(rnorm(Nsample))
 simData_rw <- data.frame(x_rw = x_sim_rw,
                          y_rw = y_sim_rw)
 
-ggplot(simData_rw, aes(x=x_rw)) + geom_histogram()
-ggplot(simData_rw, aes(x=y_rw)) + geom_histogram()
-autoplot(ts(simData_rw[,c(1,2)]))
+# ggplot(simData_rw, aes(x=x_rw)) + geom_histogram()
+# ggplot(simData_rw, aes(x=y_rw)) + geom_histogram()
+autoplot(ts(simData_rw[,c(1:2)])) # Time series
+ggplot(simData_rw, aes(x=x_rw,y=y_rw)) + geom_point() # 2D scatter plot
+sc_rw <- ggscatter(simData_rw,x="x_rw",y="y_rw", 
+                   color = "black", shape = 16, size = 2,
+                   add = "reg.line",
+                   add.params = list(color = "blue", fill = "lightgray"),
+                   conf.int = TRUE,cor.coef = TRUE) +
+  ggtitle("No association?")
 
 mod <- lm(y_rw ~ x_rw, data = simData_rw)
 summary(mod)
-plot(mod)
+# 
+# plot(mod)
 
+grid.arrange(scatter,sc_rw,ncol=2)
 
-# correct p-value ---------------------------------------------------------------
+# ## Spurious? Regression -------------------------------------------------------
+# # generate random-walk data
+# # Data that adds a random value at the current point
+# # to the value at the previous point in time.
+# x_sim_rw   <- cumsum(rnorm(Nsample)) 
+# y_mod_rw   <- 3 + 0.5 * x_sim_rw + rnorm(Nsample, mean = m, sd=v)
+# simData_mod_rw <- data.frame(x_rw = x_sim_rw,
+#                          y_rw = y_mod_rw)
+# 
+# #ggplot(simData_rw, aes(x=x_rw)) + geom_histogram()
+# #ggplot(simData_rw, aes(x=y_rw)) + geom_histogram()
+# autoplot(ts(simData_mod_rw[,c(1,2)])) # Time series ggplot2
+# ggplot(simData_rw, aes(x=x_rw,y=y_rw)) + geom_point() # 2D scatter plot
+# 
+# mod <- lm(y_rw ~ x_rw, data = simData_rw)
+# summary(mod)
+
+# 100 simulations (correct p-value) ---------------------------------------------
 # Checking p-values of regression coefficients by simulation
 # correct test
 #--------------------------------------------------------------------------------
+Nsim <- 100 # Number of simulation runs
+pValues     <- numeric(Nsim) # Set vectors
+pValuesRW   <- numeric(Nsim) # Set vectors for random walk
+pValueARIMA <- numeric(Nsim) # Set vectors for ARIMA sim
 
-# Number of simulation runs
-Nsim <- 100
-
-# Set vectors
-# x_sim <- y_sim <- matrix(, nrow = Nsample, ncol = Nsim)
-pValues <- numeric(Nsim)
-
-# Simulation data without autocorrelation
-for(i in 1:Nsim){
+# Nsim times simulation data 
+for(i in 1:Nsim){ 
+  # No random walk process
   y <- rnorm(Nsample, sd = sqrt(v))
   x <- rnorm(Nsample, sd = sqrt(v))
   
-  # Run a linear regression analysis
-  mod <- lm(y ~ x)
-  
-  # Save x and y, p-value
-  #x_sim[,i] <- x
-  #y_sim[,i] <- y
-  pValues[i] <- summary(mod)$coefficients[2,4]
-}
-
-# unit root (random walk) process -----------------------------------------------
-# Simulation to check for apparent regression
-# For unit root process
-#--------------------------------------------------------------------------------
-# Set vectors for random walk
-# x_sim_rw <- y_sim_rw <- matrix(, nrow = Nsample, ncol = Nsim)
-pValuesRW <- numeric(Nsim)
-
-# Random walk simulation data
-for(i in 1:Nsim){
+  # Random walk simulation data
   y_rw <- cumsum(rnorm(n=Nsample))
   x_rw <- cumsum(rnorm(n=Nsample))
   
-  # Run a linear regression analysis
-  mod_rw <- lm(y_rw ~ x_rw)
+  # ARIMA simulation data
+  x_arima <- arima.sim(list(order=c(2,1,1), # ARIMA(2,1,1)
+                            ar=c(0.2,-0.1),
+                            ma=-0.1), n=Nsample) 
+  y_arima <- arima.sim(list(order=c(0,1,1), # ARIMA(0,1,1)
+                            ma=0.2), n=Nsample) 
+  
+  
+  mod       <- lm(y ~ x) # linear regression analysis
+  mod_rw    <- lm(y_rw ~ x_rw) # linear regression analysis for rw
+  mod_arima <- lm(y_arima ~ x_arima) # linear regression analysis for arima
   
   # Save p-value
-  # x_sim_rw[,i] <- x_rw
-  # y_sim_rw[,i] <- y_rw
-  pValuesRW[i] <- summary(mod_rw)$coefficients[2,4]
+  pValues[i]     <- summary(mod)$coefficients[2,4]
+  pValuesRW[i]   <- summary(mod_rw)$coefficients[2,4]
+  pValueARIMA[i] <- summary(mod_arima)$coefficients[2,4]
 }
 
 # Combine data 
-# simData <- data.frame(sim = c(x_sim, y_sim),
-#                       sim_rw = c(x_sim_rw,y_sim_rw),
-#                       simPattern = rep(c("normal", "RW"),each = Nsim))
-simPresult <- data.frame(pValues = c(pValues, pValuesRW),
-                        simPattern = rep(c("Correct Regression", 
-                                           "Spurious Regression"), 
-                                         each = Nsim))
+simPresult <- data.frame(pValues = c(pValues, pValuesRW, pValueARIMA),
+                         simPattern = rep(c("Regression", 
+                                            "Regression of RW",
+                                            "Regression of ARIMA"), 
+                                          each = Nsim))
 
 # Histograms
 histPlot <- 
   ggplot(simPresult, aes(x = pValues, fill = simPattern)) + 
-  geom_histogram(alpha = 0.5, position = "identity", binwidth  = 0.1)
+  geom_histogram(alpha = 0.5, position = "identity", binwidth  = 0.1)+
+  ggtitle("100 simulations and p-value")
 plot(histPlot)
 
+
+
+
+# Bayesian Modelling on RW  -----------------------------------------------------
+date <- seq(as.POSIXct("2022-1-1"), 
+            length.out = Nsample, by = "day")
+date <- as.POSIXct(date)
+simData_rw <- cbind(date, simData_rw)
+head(simData_rw, n = 3)
+
+# Create data list; mandatory for stan process
+data_list <- list(
+  T  = nrow(simData_rw),
+  x  = simData_rw$x_rw,
+  y  = simData_rw$y_rw
+)
+
+# stan process: takes long time
+regOnTS_stan <- stan(
+  file = "regOnTS.stan",
+  data = data_list,
+  seed = 1,
+  iter = 2000,
+  warmup = 1000,
+  thin = 6
+)
+
+print(regOnTS_stan, 
+      par = c("s_mu", "s_a","s_b","b[400]"),
+      probs = c(0.025, 0.5, 0.975))
+
+mcmc_sample <- rstan::extract(regOnTS_stan)
+source("plotSSM.R")
+p_all <- plotSSM(mcmc_sample = mcmc_sample, 
+                 time_vec = simData_rw$date, 
+                 obs_vec  = simData_rw$y_rw,
+                 state_name = "mu", 
+                 graph_title = "Estimate y", 
+                 y_label = "Y") 
+
+p_mu <- plotSSM(mcmc_sample = mcmc_sample, 
+                time_vec = simData_rw$date, 
+                obs_vec  = simData_rw$y_rw,
+                state_name = "a", 
+                graph_title = "Estimate Trend Intercept a", 
+                y_label = "a") 
+
+p_b <- plotSSM(mcmc_sample = mcmc_sample, 
+               time_vec = simData_rw$date,
+               state_name = "b", 
+               graph_title = "Estimate Trend Coefficient", 
+               y_label = "coef") 
+
+grid.arrange(p_all, p_mu, p_b)
+autoplot(ts(simData_rw[,c(2,3)]))
+
+# ---------------------------------------
+mcmc_rhat(rhat(regOnTS_stan))
+check_hmc_diagnostics(regOnTS_stan)
+
+# mcmc combo not work
+# mcmc_combo(extract(regOnTS_stan, permuted=FALSE), pars = c("s_mu"))
+
+# mcmc_acf_bar(mcmc_sample, 
+#              pars = c("s_mu", "s_a", "s_b"))
+# mcmc_trace(mcmc_sample, 
+#            pars = c("s_alpha", "s_beta_temp", "s_beta_humi", "s_obs", "lp__"))
+
+# Bayesian Modelling on ARIMA ---------------------------------------------------
+date <- seq(as.POSIXct("2022-1-1"), 
+            length.out = Nsample, by = "day")
+date <- as.POSIXct(date)
+x_arima <- arima.sim(list(order=c(2,1,1), # ARIMA(2,1,1)
+                          ar=c(0.2,-0.1),
+                          ma=-0.1), n=Nsample) 
+y_arima <- arima.sim(list(order=c(0,1,1), # ARIMA(0,1,1)
+                          ma=0.2), n=Nsample) 
+simData_arima <- cbind(date, 
+                       as.data.frame(x_arima[1:Nsample]),
+                       as.data.frame(y_arima[1:Nsample]))
+head(simData_arima, n = 3)
+
+# Create data list; mandatory for stan process
+data_list <- list(
+  T  = nrow(simData_arima),
+  x  = simData_arima$x_arima,
+  y  = simData_arima$y_arima
+)
+
+# stan process: takes long time
+regOnTS_stan <- stan(
+  file = "regOnTS.stan",
+  data = data_list,
+  seed = 1,
+  iter = 2000,
+  warmup = 1000,
+  thin = 6
+)
+
+print(regOnTS_stan, 
+      par = c("s_mu", "s_a","s_b","b[400]"),
+      probs = c(0.025, 0.5, 0.975))
+
+mcmc_sample <- rstan::extract(regOnTS_stan)
+source("plotSSM.R")
+p_all <- plotSSM(mcmc_sample = mcmc_sample, 
+                 time_vec = simData_arima$date, 
+                 obs_vec  = simData_arima$y_arima[1:Nsample],
+                 state_name = "mu", 
+                 graph_title = "Estimate y", 
+                 y_label = "Y") 
+
+p_mu <- plotSSM(mcmc_sample = mcmc_sample, 
+                time_vec = simData_arima$date, 
+                obs_vec  = simData_arima$y_arima[1:Nsample],
+                state_name = "a", 
+                graph_title = "Estimate Trend Intercept a", 
+                y_label = "a") 
+
+p_b <- plotSSM(mcmc_sample = mcmc_sample, 
+               time_vec = simData_arima$date,
+               state_name = "b", 
+               graph_title = "Estimate Trend Coefficient", 
+               y_label = "coef") 
+
+grid.arrange(p_all, p_mu, p_b)
+autoplot(ts(simData_rw[,c(2,3)]))
+
+
+
+
+
+
+# Diff Regression Analysis ------------------------------------------------------
+# Take a difference time series data 
+# 
+# -------------------------------------------------------------------------------
+
+diff_y <- diff(y_rw)
+diff_x <- diff(x_rw)
+
+diff_data <- data.frame(diff_y = diff_y,
+                        diff_x = diff_x)
+diff_rw <- lm(diff_y ~ diff_x, data = diff_data)
+summary(diff_rw)
+# Looks good
 
 # Unit Root Test ----------------------------------------------------------------
 # Augmented Dickey–Fuller Test
@@ -153,6 +331,8 @@ histPlot <-
   ggplot(simResult, aes(x = pValues, fill = simPattern)) + 
   geom_histogram(alpha = 0.5,position = "identity",binwidth  = 0.1)
 plot(histPlot)
+
+
 
 # cointegration -----------------------------------------------------------------
 # cointegration test：Engle-Granger method

@@ -1,0 +1,209 @@
+---
+title: "mixtape_iv"
+author: "Akihiko Mori"
+date: "16/02/2023"
+output: html_document
+---
+
+```{r import_library_data, message=FALSE}
+library(AER)
+library(haven)
+library(tidyverse)
+# not work: read_dta(paste("https://raw.github.com/scunning1975/mixtape/master/"
+card <- read_dta("card.dta")
+```
+
+# Application
+## College in the county
+
+### IV assumptions
+1. Exclusion restriction\
+Cov(Z, U) = 0\
+Untestable: refuse any possible cases theoretically and logically
+2. Relevance restriction\
+Cov(X,Y) != 0\
+Testable: can be test using F value
+the strength of the instrument
+
+### Procedure
+```{}
+      U
+     |  \
+Z -> X -> Y
+```
+
+1. Estimate 2SLS model: $\beta_{IV} = (Z^TX)^-1Z^Ty$
+2. Calculate the first-stage F statistic: $X = Z\beta_{IV_1} + X1\beta$
+3. Compare the 2SLS results with the OLS results
+
+### Questions
+1. Why using F-test instead of T-test?
+
+-> the first-stage f-statistic is not F-statistic in Statistics. This is different statistic.
+
+2. More 10 of F value.
+
+```{r define_vars_ols}
+# Y1 = Dependent var -------------
+# Y2 = endogenous var
+# X1 = exogenous var
+# X2 = instrument var
+#
+# Y1 <- Y2 <- X2
+# ^ 
+# | 
+# X1
+#
+# Y1 = Y2 + X1 + e1
+# Y2 = X2 + X1 + e2
+# ---------------------------------
+Y1 <- card$lwage # log earnings
+Y2 <- card$educ  # schooling years
+X1 <- cbind(card$exper,card$black,card$south,card$married,card$smsa) # exogeneous var
+X2 <- card$nearc4 # proximity to college
+
+# OLS
+ols_reg <- lm(Y1 ~ Y2 + X1)
+summary(ols_reg)
+```
+```{r first_stage_ols}
+# F statistic for IV in first stage
+iv1 <- lm(Y2 ~ X2 + X1)
+iv1_sum <- summary(iv1)
+iv1_sum
+# ?
+iv1_sum$coefficients[2,3]^2
+```
+
+$$\mu^2 = \frac{\Pi^TZ^TZ\Pi}{\sigma^2_v}$$
+$$\mu^2 \sim G_T$$
+$$\begin{aligned}
+G_T &= \frac{\hat\Sigma_{vv}^{-1/2T}Y^TP_ZY\hat\Sigma_{vv}^{-1/2T}}{K}\\
+\hat\Sigma_{vv} &= \frac{Y^TM_ZY}{T-K}\\
+M_Z &= I-P_Z\\
+P_Z &= Z(Z^TZ)^{-1}Z^T
+\end{aligned}$$
+
+```{r F-stat_calc}
+mu2 <- numeric(1)
+
+# pi <- iv1_sum$coefficients[2,1]
+# z  <- as.matrix(X2)
+# sigma2 <- t(Y2 - z%*%pi)%*%(Y2 - z%*%pi)
+# mu2 <- t(pi)%*%t(z)%*%z%*%pi/sigma2
+
+```
+
+```{r wald_test}
+library(aod)
+wald <- wald.test(Sigma = vcov(iv1), b = coef(iv1), Terms = 2)
+wald$result$chi2[1]
+
+# ZX <- cbind(1,X2,X1)
+# solve(t(ZX)%*%ZX)%*%t(ZX)%*%Y2
+
+S <- vcov(iv1)
+b <- coef(iv1)
+T <- 2
+test_num <- length(T)
+H0 <- rep(0, test_num)
+test_param <- matrix(rep(0, length(b) * test_num), ncol = length(b))
+for (i in 1:test_num) 
+  test_param[i, T[i]] <- 1
+
+f <- test_param %*% b
+qr.mat <- qr.solve(test_param %*% S %*% t(test_param))
+fval <- t(f - H0) %*% qr.mat %*% (f - H0)
+```
+
+
+```{r}
+function (Sigma, b, Terms = NULL, L = NULL, H0 = NULL, df = NULL, verbose = FALSE) 
+{
+    if (is.null(Terms) & is.null(L)) 
+        stop("One of the arguments Terms or L must be used.")
+    if (!is.null(Terms) & !is.null(L)) 
+        stop("Only one of the arguments Terms or L must be used.")
+    if (is.null(Terms)) {
+        w <- nrow(L)
+        Terms <- seq(length(b))[colSums(L) > 0]
+    }
+    else w <- length(Terms)
+    if (is.null(H0)) 
+        H0 <- rep(0, w)
+    if (w != length(H0)) 
+        stop("Vectors of tested coefficients and of null hypothesis have different lengths\n")
+    if (is.null(L)) {
+        L <- matrix(rep(0, length(b) * w), ncol = length(b))
+        for (i in 1:w) L[i, Terms[i]] <- 1
+    }
+    dimnames(L) <- list(paste("L", as.character(seq(NROW(L))), 
+        sep = ""), names(b))
+    f <- L %*% b
+    V <- Sigma
+    mat <- qr.solve(L %*% V %*% t(L))
+    stat <- t(f - H0) %*% mat %*% (f - H0)
+    p <- 1 - pchisq(stat, df = w)
+    if (is.null(df)) 
+        res <- list(chi2 = c(chi2 = stat, df = w, P = p))
+    else {
+        fstat <- stat/nrow(L)
+        df1 <- nrow(L)
+        df2 <- df
+        res <- list(chi2 = c(chi2 = stat, df = w, P = p), Ftest = c(Fstat = fstat, 
+            df1 = df1, df2 = df2, P = 1 - pf(fstat, df1, df2)))
+    }
+    structure(list(Sigma = Sigma, b = b, Terms = Terms, H0 = H0, 
+        L = L, result = res, verbose = verbose, df = df), class = "wald.test")
+}
+```
+
+
+```{r}
+summary(lm(Y2 ~ X2))
+```
+```{r}
+summary(aov(Y2 ~ X2))
+
+# summary(lm(Y2 ~ X1))
+# summary(lm(Y1 ~ Y2))
+# summary(lm(Y1 ~ X1))
+# summary(lm(Y1 ~ Y))
+```
+
+```{r iv_reg}
+# 2SLS
+iv_reg <- ivreg(Y1 ~ Y2 + X1 | X1 + X2)
+sum_iv_reg <- summary(iv_reg)
+sum_iv_reg
+```
+
+```{r F_coeff}
+set.seed(1234)
+Nsample <- 100
+m_x <- 0; s_x <- 10
+b0 <- 1
+m_b1 <- 1 ;s_b1 <- 30
+m_b2 <- 2 ;s_b2 <- 20
+m_b3 <- 30;s_b3 <- 1
+
+b1_sim <- b2_sim <- b3_sim <- as.numeric(Nsample)
+
+# x_sim  <- rnorm(Nsample, mean = m_x,sd=v_x)
+x1_sim  <- rnorm(Nsample, mean = m_x, sd = s_x)
+x2_sim  <- rnorm(Nsample, mean = m_x, sd = s_x)
+x3_sim  <- rnorm(Nsample, mean = m_x, sd = s_x)
+b1_sim  <- rnorm(Nsample, mean = m_b1,sd = s_b1)
+b2_sim  <- rnorm(Nsample, mean = m_b2,sd = s_b2)
+b3_sim  <- rnorm(Nsample, mean = m_b3,sd = s_b3)
+y1_sim  <- b0 + b1_sim * x1_sim + b2_sim * x2_sim + b3_sim * x3_sim
+
+simData <- data.frame(x1_sim = as.numeric(x1_sim),
+                      x2_sim = as.numeric(x2_sim),
+                      x3_sim = as.numeric(x3_sim),
+                      y1_sim = as.numeric(y1_sim))
+
+summary(lm(y1_sim ~ x1_sim + x2_sim + x3_sim, data = simData))
+#summary(lm(y2_sim~x_sim+x_sim+x_sim), data = simData)
+```
+

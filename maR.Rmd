@@ -41,11 +41,11 @@ library(bayesplot)
 library(gridExtra)
 library(brms)
 
-# Computation faster
+# MCMC Computation faster
 rstan_options(auto_write = TRUE)
 options(mc.cores = parallel::detectCores())
 
-# Import SSM plot function
+# Import my functions
 source("plotSSM.R", encoding="utf-8")
 source("isValidSheet.R", encoding="utf-8")
 source("ggplotCorr.R", encoding="utf-8")
@@ -176,9 +176,11 @@ two_ma_foodLossKg <- myMA(foodLossKg,2)
 #   temp <- (foodLossKg[t] + foodLossKg[t+1]) / 2
 #   two_ma_foodLossKg[t] <- ifelse(is.nan(temp), 0, temp)
 # }
-daily_hidden_loss_rate = liquidWasteKg[1:length(foodLossKg)-1] / two_ma_foodLossKg
+daily_hidden_loss_rate = liquidWasteKg[1:length(foodLossKg)] / two_ma_foodLossKg
+```
 
-# Plot beta distribution -------------------------------------------------------
+```{r beta_distribution}
+# Plot Beta distribution -------------------------------------------------------
 #define domain area
 p = seq(0, 1, length=100)
 # plot beta probability distribution daily food waste rate
@@ -216,7 +218,7 @@ week_day_end <- ifelse(week_day == "Tue" |
 week_day == "Wed" |
 week_day == "Thu", 1, -1) 
 # Final data set ---------------------------------------------------------------
-dt <- cbind(df, week_day, wkMat, week_day_end)
+dt <- cbind(df,wasteRate,daily_hidden_loss_rate, week_day, wkMat, week_day_end)
 ```
 
 
@@ -306,15 +308,15 @@ tsPlot_waste <-
 tsPlot_waste
 ```
 
-```{r waste_rate}
+```{r time_plot_waste_rate}
 
 
 # Time Series Plot on all food waste rate --------------------------------------
-tsPlot <- 
+tsWastePlot <- 
   ggplot() +
   geom_line(data = subset(dt, isClose %in% FALSE), 
-            aes(x = date, y =(allWasteKg) /(oneBowlKg * (regularOrders + miniOrders / 2))),
-            color="blue") +
+            aes(x = date, y =wasteRate),
+            color="dark blue") +
   # geom_point(data = dt, aes(x = date, y = daily_waste_rate, shape = isClose)) +
   scale_shape_manual(values=c(16, 4)) +
   theme(legend.position = c(0.1,0.15)) +
@@ -322,10 +324,26 @@ tsPlot <-
   #                          ymin = -Inf, ymax = Inf, 
   #                          fill = factor(!isClose)),  alpha = .3) +
   xlab("Date") +
-  ylab("Daily Food Waste (kg)") +
+  ylab("Daily Food Waste Rate") +
   ggtitle("Daily Food Waste Rate Trend")
-tsPlot
 
+tsHiddenLossPlot <- 
+  ggplot() +
+  geom_line(data = subset(dt, isClose %in% FALSE), 
+            aes(x = date, y =daily_hidden_loss_rate),
+            color="dark blue") +
+  # geom_point(data = dt, aes(x = date, y = daily_waste_rate, shape = isClose)) +
+  scale_shape_manual(values=c(16, 4)) +
+  theme(legend.position = c(0.1,0.15)) +
+  # geom_rect(data = dt, aes(xmin = date, xmax = dplyr::lead(date), 
+  #                          ymin = -Inf, ymax = Inf, 
+  #                          fill = factor(!isClose)),  alpha = .3) +
+  xlab("Date") +
+  ylab("Daily Food Loss Rate") +
+  ggtitle("Daily Hidden Food Loss Rate Trend")
+tsHiddenLossPlot
+
+grid.arrange(tsWastePlot,tsHiddenLossPlot)
 ```
 
 ```{r X_tsPlot_customer}
@@ -390,12 +408,12 @@ hist_all_LossWasteKg
 
 ```{r histogram_all}
 # Histogram on all food loss----------------------------------------------------
-hist_all_LossWasteKg <- 
+hist_all_LossKg <- 
   ggplot(data = subset(dt, isClose %in% FALSE), aes(x = foodLossKg)) +
   geom_histogram(aes(y = ..density..), bins = 30, colour = 1, fill = "white") +
   geom_density(linewidth = 1.5, colour = 4, fill = 4, alpha = 0.25) +
   labs(title = "Daily Food Loss - Histogram and Kernel Density Estimation")
-hist_all_LossWasteKg
+hist_all_LossKg
 ```
 
 ```{r histogram_all}
@@ -407,6 +425,7 @@ hist_allWasteKg <-
   labs(title = "Daily Food Waste - Histogram and Kernel Density Estimation")
 hist_allWasteKg
 
+grid.arrange(hist_all_LossWasteKg,hist_all_LossKg,hist_allWasteKg)
 # # Histogram on all food waste --------------------------------------------------
 # hist_allWasteKg_dist <- 
 #   ggplot(data = subset(dt, week_day_end %in% 1 ), aes(x = allWasteKg)) +
@@ -1661,14 +1680,13 @@ plot(log_ml_all)
 
 ```{r data_preprocessing}
 # ------------------------------------------------------------------------------
-dy <- diff(dt$allWasteKg)
+dy  <- diff(dt$allWasteKg)
 dx1 <- diff(dt$tempC)
 dx2 <- diff(dt$humidityPercent)
 ddt <- data.frame(
-diff_allWasteKg = dy,
-diff_tempC = dx1,
-diff_humi = dx2
-)
+  diff_allWasteKg = dy,
+  diff_tempC = dx1,
+  diff_humi = dx2)
 ```
 
 ```{r plots_diff}

@@ -5,7 +5,7 @@ library(ggfortify)
 library(gridExtra)
 rstan_options(auto_write = TRUE)
 options(mc.cores = parallel::detectCores())
-source("plotSSM.R", encoding="utf-8")
+source("plotSSM_mat.R", encoding="utf-8")
 
 
 sales_df_2 <- read.csv("5-4-1-sales-ts-2.csv")
