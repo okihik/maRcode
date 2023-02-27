@@ -17,6 +17,13 @@ card <- read_dta("card.dta")
 ## College in the county
 
 ### IV assumptions
+
+```{}
+      U
+     |  \
+Z -> X -> Y
+```
+
 1. Exclusion restriction\
 Cov(Z, U) = 0\
 Untestable: refuse any possible cases theoretically and logically
@@ -26,22 +33,24 @@ Testable: can be test using F value
 the strength of the instrument
 
 ### Procedure
-```{}
-      U
-     |  \
-Z -> X -> Y
-```
 
-1. Estimate 2SLS model: $\beta_{IV} = (Z^TX)^-1Z^Ty$
-2. Calculate the first-stage F statistic: $X = Z\beta_{IV_1} + X1\beta$
+1. Estimate 2SLS model: $\beta_{IV} = (Z^TX)^{-1}Z^Ty$
+2. Calculate the first-stage F statistic: $X = Z\beta_{IV_1} + X1\beta$\
+(exclude exogenous variables (X1))
+
 3. Compare the 2SLS results with the OLS results
 
 ### Questions
-1. Why using F-test instead of T-test?
+1. Why using F-test instead of T-test?\
+-> the first-stage f-statistic is not F-statistic. This is different statistic and hypothesis (Wald test).
 
--> the first-stage f-statistic is not F-statistic in Statistics. This is different statistic.
+My thought:
+$$F = \frac{(\hat{y}-\bar{y})^T(\hat{y}-\bar{y})}{(y - \hat{y})^T(y - \hat{y})}\frac{d.f.denom(n-p)}{d.f.nume (p-1)}$$
+Then Bonferroni or Tukey method test...
 
-2. More 10 of F value.
+$$\text{first-stage } F = (\mathbf{R\hat{\beta}-q})^T\hat{\Sigma}^{-1}(\mathbf{R\hat{\beta}-q})$$
+2. More 10 of F value.\
+-> Based on Monte Carlo Simulation.
 
 ```{r define_vars_ols}
 # Y1 = Dependent var -------------
@@ -59,7 +68,7 @@ Z -> X -> Y
 # ---------------------------------
 Y1 <- card$lwage # log earnings
 Y2 <- card$educ  # schooling years
-X1 <- cbind(card$exper,card$black,card$south,card$married,card$smsa) # exogeneous var
+X1 <- cbind(card$exper,card$black,card$south,card$married,card$smsa) # exogenous var
 X2 <- card$nearc4 # proximity to college
 
 # OLS
@@ -71,99 +80,60 @@ summary(ols_reg)
 iv1 <- lm(Y2 ~ X2 + X1)
 iv1_sum <- summary(iv1)
 iv1_sum
-# ?
-iv1_sum$coefficients[2,3]^2
+# squared t-stat
+# iv1_sum$coefficients[2,3]^2
+
+# OLS excluding X2 
+summary(lm(Y2 ~ X2))
 ```
 
 $$\mu^2 = \frac{\Pi^TZ^TZ\Pi}{\sigma^2_v}$$
-$$\mu^2 \sim G_T$$
+
+```{r F-stat_calc}
+mu2 <- numeric(1)
+pi <- as.matrix(iv1_sum$coefficients[2,1])
+z  <- as.matrix(X2)
+sig2 <- t(Y2 - z%*%pi)%*%(Y2 - z%*%pi)
+mu2 <- (t(z%*%pi)%*%z%*%pi)/sig2
+mu2
+```
+$$\mu^2 \simeq G_T$$
 $$\begin{aligned}
 G_T &= \frac{\hat\Sigma_{vv}^{-1/2T}Y^TP_ZY\hat\Sigma_{vv}^{-1/2T}}{K}\\
 \hat\Sigma_{vv} &= \frac{Y^TM_ZY}{T-K}\\
 M_Z &= I-P_Z\\
 P_Z &= Z(Z^TZ)^{-1}Z^T
 \end{aligned}$$
-
-```{r F-stat_calc}
-mu2 <- numeric(1)
-
-# pi <- iv1_sum$coefficients[2,1]
-# z  <- as.matrix(X2)
-# sigma2 <- t(Y2 - z%*%pi)%*%(Y2 - z%*%pi)
-# mu2 <- t(pi)%*%t(z)%*%z%*%pi/sigma2
-
+```{r}
+Z  <- as.matrix(X2)
+Pz <- Z%*%solve(t(Z)%*%Z)%*%t(Z)
+Mz <- diag(nrow(Pz)) - Pz
+Sig <- (t(Y2)%*%Mz%*%Y2) / (nrow(Pz) - 1)
+Gt  <- (t(Sig^(-0.5)))%*%t(Y2)%*%Pz%*%Y2%*%sqrt(1/Sig)/(1)
+Gt
 ```
 
 ```{r wald_test}
+# https://www.rdocumentation.org/packages/aod/versions/1.3.2/topics/wald.test
 library(aod)
 wald <- wald.test(Sigma = vcov(iv1), b = coef(iv1), Terms = 2)
 wald$result$chi2[1]
 
+# https://cran.r-project.org/web/packages/clubSandwich/vignettes/Wald-tests-in-clubSandwich.html
+library(clubSandwich)
+vcov <- vcovCR(iv1, cluster = Y2, type = "CR0")
+coef_test(iv1, vcov = vcov)
+trt <- matrix(c(0,1,0,0,0,0,0), nrow = 1)
+trt
+
+Wald_test(iv1, constraints = trt, vcov = vcov)
+
 # ZX <- cbind(1,X2,X1)
 # solve(t(ZX)%*%ZX)%*%t(ZX)%*%Y2
-
-S <- vcov(iv1)
-b <- coef(iv1)
-T <- 2
-test_num <- length(T)
-H0 <- rep(0, test_num)
-test_param <- matrix(rep(0, length(b) * test_num), ncol = length(b))
-for (i in 1:test_num) 
-  test_param[i, T[i]] <- 1
-
-f <- test_param %*% b
-qr.mat <- qr.solve(test_param %*% S %*% t(test_param))
-fval <- t(f - H0) %*% qr.mat %*% (f - H0)
 ```
 
-
 ```{r}
-function (Sigma, b, Terms = NULL, L = NULL, H0 = NULL, df = NULL, verbose = FALSE) 
-{
-    if (is.null(Terms) & is.null(L)) 
-        stop("One of the arguments Terms or L must be used.")
-    if (!is.null(Terms) & !is.null(L)) 
-        stop("Only one of the arguments Terms or L must be used.")
-    if (is.null(Terms)) {
-        w <- nrow(L)
-        Terms <- seq(length(b))[colSums(L) > 0]
-    }
-    else w <- length(Terms)
-    if (is.null(H0)) 
-        H0 <- rep(0, w)
-    if (w != length(H0)) 
-        stop("Vectors of tested coefficients and of null hypothesis have different lengths\n")
-    if (is.null(L)) {
-        L <- matrix(rep(0, length(b) * w), ncol = length(b))
-        for (i in 1:w) L[i, Terms[i]] <- 1
-    }
-    dimnames(L) <- list(paste("L", as.character(seq(NROW(L))), 
-        sep = ""), names(b))
-    f <- L %*% b
-    V <- Sigma
-    mat <- qr.solve(L %*% V %*% t(L))
-    stat <- t(f - H0) %*% mat %*% (f - H0)
-    p <- 1 - pchisq(stat, df = w)
-    if (is.null(df)) 
-        res <- list(chi2 = c(chi2 = stat, df = w, P = p))
-    else {
-        fstat <- stat/nrow(L)
-        df1 <- nrow(L)
-        df2 <- df
-        res <- list(chi2 = c(chi2 = stat, df = w, P = p), Ftest = c(Fstat = fstat, 
-            df1 = df1, df2 = df2, P = 1 - pf(fstat, df1, df2)))
-    }
-    structure(list(Sigma = Sigma, b = b, Terms = Terms, H0 = H0, 
-        L = L, result = res, verbose = verbose, df = df), class = "wald.test")
-}
-```
-
-
-```{r}
-summary(lm(Y2 ~ X2))
-```
-```{r}
-summary(aov(Y2 ~ X2))
+# summary(aov(Y2 ~ X2))
 
 # summary(lm(Y2 ~ X1))
 # summary(lm(Y1 ~ Y2))
@@ -176,7 +146,75 @@ summary(aov(Y2 ~ X2))
 iv_reg <- ivreg(Y1 ~ Y2 + X1 | X1 + X2)
 sum_iv_reg <- summary(iv_reg)
 sum_iv_reg
+
+summary(ivreg(Y2 ~ X2))
 ```
+
+### Wald Multiple Hypothesis
+
+* test multiple parameters as the same time
+
+$$\begin{aligned}
+H_0&: \beta_1 = 1\ \& \ \beta_2 = 0\\
+H_0&: \beta_1 = 0\ \& \ \beta_2 = 1
+\end{aligned}$$
+
+* perform a series of simply hypothesis does not answer the question (joint distribution vs. two marginal distributions).
+
+* The test statistic is based on a restriction written in matrix form.
+
+$$y=\beta_0+x_1\beta_1 + x_2\beta_2 + x_3\beta_3 + \epsilon$$
+
+Null hypothesis is $H_0:\beta_1=0$ & $\beta_2=0$  can be rewritten as $H_0:\textbf{R}\beta−\textbf{q}=0$  where
+$\textbf{R}$ is a m x k matrix where m is the number of restrictions and k is the number of parameters. $\textbf{q}$ is a k x 1 vector $\textbf{R}$ “picks up” the relevant parameters while $\textbf{q}$ is a the null value of the parameter.
+
+$$\mathbf{R}=
+\left(
+\begin{array}{cccc}
+0 & 1 & 0 & 0 \\
+0 & 0 & 1 & 0 \\
+\end{array}
+\right),
+\mathbf{q} =
+\left(
+\begin{array}{c}
+0 \\
+0 \\
+\end{array}
+\right)
+$$
+
+Then test statistic for OLS estimator for a multiple hypothesis is
+
+$$F = \frac{(\mathbf{R\hat{\beta}-q})^T\hat{\Sigma}^{-1}(\mathbf{R\hat{\beta}-q})}{m} \sim^a F(m,n-k)
+$$
+
+where:\
+* $Σ^{−1}$ is the estimator for the asymptotic variance-covariance matrix\
+** if homoskedasticity holds, both the homoskedastic and heteroskedastic versions produce valid estimator\
+** If homoskedasticity does not hold, only the heteroskedastic version produces valid estimators.
+
+$$\begin{equation}
+\text{Homoskedasticity: } Var(\epsilon|x)=Var(\epsilon)=\sigma^2
+\end{equation}$$
+
+```{r}
+Sigm <- vcov(iv1)
+beta <- coef(iv1)
+term <- 2
+
+q <- rep(0, length(term))
+R <- matrix(rep(0, length(beta) * length(term)), 
+            ncol = length(beta))
+for (i in 1:length(term)) 
+  R[i, term[i]] <- 1
+
+Rb <- R %*% beta
+S  <- solve(R %*% Sigm %*% t(R))
+fval <- t(Rb - q) %*% S %*% (Rb - q)
+fval
+```
+
 
 ```{r F_coeff}
 set.seed(1234)

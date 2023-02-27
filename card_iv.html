@@ -367,6 +367,9 @@ card &lt;- read_dta(&quot;card.dta&quot;)</code></pre>
 <h2>College in the county</h2>
 <div id="iv-assumptions" class="section level3">
 <h3>IV assumptions</h3>
+<pre><code>      U
+     |  \
+Z -&gt; X -&gt; Y</code></pre>
 <ol style="list-style-type: decimal">
 <li>Exclusion restriction<br />
 Cov(Z, U) = 0<br />
@@ -378,27 +381,29 @@ Testable: can be test using F value the strength of the instrument</li>
 </div>
 <div id="procedure" class="section level3">
 <h3>Procedure</h3>
-<pre><code>      U
-     |  \
-Z -&gt; X -&gt; Y</code></pre>
 <ol style="list-style-type: decimal">
-<li>Estimate 2SLS model: <span class="math inline">\(\beta_{IV} =
-(Z^TX)^-1Z^Ty\)</span></li>
-<li>Calculate the first-stage F statistic: <span class="math inline">\(X
-= Z\beta_{IV_1} + X1\beta\)</span></li>
-<li>Compare the 2SLS results with the OLS results</li>
+<li><p>Estimate 2SLS model: <span class="math inline">\(\beta_{IV} =
+(Z^TX)^{-1}Z^Ty\)</span></p></li>
+<li><p>Calculate the first-stage F statistic: <span class="math inline">\(X = Z\beta_{IV_1} + X1\beta\)</span><br />
+(exclude exogenous variables (X1))</p></li>
+<li><p>Compare the 2SLS results with the OLS results</p></li>
 </ol>
 </div>
 <div id="questions" class="section level3">
 <h3>Questions</h3>
 <ol style="list-style-type: decimal">
-<li>Why using F-test instead of T-test?</li>
+<li>Why using F-test instead of T-test?<br />
+-&gt; the first-stage f-statistic is not F-statistic. This is different
+statistic and hypothesis (Wald test).</li>
 </ol>
-<p>-&gt; the first-stage f-statistic is not F-statistic in Statistics.
-This is different statistic.</p>
-<ol start="2" style="list-style-type: decimal">
-<li>More 10 of F value.</li>
-</ol>
+<p>My thought: <span class="math display">\[F =
+\frac{(\hat{y}-\bar{y})^T(\hat{y}-\bar{y})}{(y - \hat{y})^T(y -
+\hat{y})}\frac{d.f.denom(n-p)}{d.f.nume (p-1)}\]</span> Then Bonferroni
+or Tukey method test…</p>
+<p><span class="math display">\[\text{first-stage } F =
+(\mathbf{R\hat{\beta}-q})^T\hat{\Sigma}^{-1}(\mathbf{R\hat{\beta}-q})\]</span>
+2. More 10 of F value.<br />
+-&gt; Based on Monte Carlo Simulation.</p>
 <pre class="r"><code># Y1 = Dependent var -------------
 # Y2 = endogenous var
 # X1 = exogenous var
@@ -414,7 +419,7 @@ This is different statistic.</p>
 # ---------------------------------
 Y1 &lt;- card$lwage # log earnings
 Y2 &lt;- card$educ  # schooling years
-X1 &lt;- cbind(card$exper,card$black,card$south,card$married,card$smsa) # exogeneous var
+X1 &lt;- cbind(card$exper,card$black,card$south,card$married,card$smsa) # exogenous var
 X2 &lt;- card$nearc4 # proximity to college
 
 # OLS
@@ -472,125 +477,11 @@ iv1_sum</code></pre>
 ##   (7 observations deleted due to missingness)
 ## Multiple R-squared:  0.4774, Adjusted R-squared:  0.4764 
 ## F-statistic: 456.1 on 6 and 2996 DF,  p-value: &lt; 2.2e-16</code></pre>
-<pre class="r"><code># ?
-iv1_sum$coefficients[2,3]^2</code></pre>
-<pre><code>## [1] 15.76666</code></pre>
-<p><span class="math display">\[\mu^2 =
-\frac{\Pi^TZ^TZ\Pi}{\sigma^2_v}\]</span> <span class="math display">\[\mu^2 \sim G_T\]</span> <span class="math display">\[\begin{aligned}
-G_T &amp;=
-\frac{\hat\Sigma_{vv}^{-1/2T}Y^TP_ZY\hat\Sigma_{vv}^{-1/2T}}{K}\\
-\hat\Sigma_{vv} &amp;= \frac{Y^TM_ZY}{T-K}\\
-M_Z &amp;= I-P_Z\\
-P_Z &amp;= Z(Z^TZ)^{-1}Z^T
-\end{aligned}\]</span></p>
-<pre class="r"><code>mu2 &lt;- numeric(1)
+<pre class="r"><code># squared t-stat
+# iv1_sum$coefficients[2,3]^2
 
-# pi &lt;- iv1_sum$coefficients[2,1]
-# z  &lt;- as.matrix(X2)
-# sigma2 &lt;- t(Y2 - z%*%pi)%*%(Y2 - z%*%pi)
-# mu2 &lt;- t(pi)%*%t(z)%*%z%*%pi/sigma2</code></pre>
-<pre class="r"><code>library(aod)</code></pre>
-<pre><code>## 
-## Attaching package: &#39;aod&#39;</code></pre>
-<pre><code>## The following object is masked from &#39;package:survival&#39;:
-## 
-##     rats</code></pre>
-<pre class="r"><code>wald &lt;- wald.test(Sigma = vcov(iv1), b = coef(iv1), Terms = 2)
-wald$result$chi2[1]</code></pre>
-<pre><code>##     chi2 
-## 15.76666</code></pre>
-<pre class="r"><code># ZX &lt;- cbind(1,X2,X1)
-# solve(t(ZX)%*%ZX)%*%t(ZX)%*%Y2
-
-S &lt;- vcov(iv1)
-b &lt;- coef(iv1)
-T &lt;- 2
-test_num &lt;- length(T)
-H0 &lt;- rep(0, test_num)
-test_param &lt;- matrix(rep(0, length(b) * test_num), ncol = length(b))
-for (i in 1:test_num) 
-  test_param[i, T[i]] &lt;- 1
-
-f &lt;- test_param %*% b
-qr.mat &lt;- qr.solve(test_param %*% S %*% t(test_param))
-fval &lt;- t(f - H0) %*% qr.mat %*% (f - H0)</code></pre>
-<pre class="r"><code>function (Sigma, b, Terms = NULL, L = NULL, H0 = NULL, df = NULL, verbose = FALSE) 
-{
-    if (is.null(Terms) &amp; is.null(L)) 
-        stop(&quot;One of the arguments Terms or L must be used.&quot;)
-    if (!is.null(Terms) &amp; !is.null(L)) 
-        stop(&quot;Only one of the arguments Terms or L must be used.&quot;)
-    if (is.null(Terms)) {
-        w &lt;- nrow(L)
-        Terms &lt;- seq(length(b))[colSums(L) &gt; 0]
-    }
-    else w &lt;- length(Terms)
-    if (is.null(H0)) 
-        H0 &lt;- rep(0, w)
-    if (w != length(H0)) 
-        stop(&quot;Vectors of tested coefficients and of null hypothesis have different lengths\n&quot;)
-    if (is.null(L)) {
-        L &lt;- matrix(rep(0, length(b) * w), ncol = length(b))
-        for (i in 1:w) L[i, Terms[i]] &lt;- 1
-    }
-    dimnames(L) &lt;- list(paste(&quot;L&quot;, as.character(seq(NROW(L))), 
-        sep = &quot;&quot;), names(b))
-    f &lt;- L %*% b
-    V &lt;- Sigma
-    mat &lt;- qr.solve(L %*% V %*% t(L))
-    stat &lt;- t(f - H0) %*% mat %*% (f - H0)
-    p &lt;- 1 - pchisq(stat, df = w)
-    if (is.null(df)) 
-        res &lt;- list(chi2 = c(chi2 = stat, df = w, P = p))
-    else {
-        fstat &lt;- stat/nrow(L)
-        df1 &lt;- nrow(L)
-        df2 &lt;- df
-        res &lt;- list(chi2 = c(chi2 = stat, df = w, P = p), Ftest = c(Fstat = fstat, 
-            df1 = df1, df2 = df2, P = 1 - pf(fstat, df1, df2)))
-    }
-    structure(list(Sigma = Sigma, b = b, Terms = Terms, H0 = H0, 
-        L = L, result = res, verbose = verbose, df = df), class = &quot;wald.test&quot;)
-}</code></pre>
-<pre><code>## function (Sigma, b, Terms = NULL, L = NULL, H0 = NULL, df = NULL, verbose = FALSE) 
-## {
-##     if (is.null(Terms) &amp; is.null(L)) 
-##         stop(&quot;One of the arguments Terms or L must be used.&quot;)
-##     if (!is.null(Terms) &amp; !is.null(L)) 
-##         stop(&quot;Only one of the arguments Terms or L must be used.&quot;)
-##     if (is.null(Terms)) {
-##         w &lt;- nrow(L)
-##         Terms &lt;- seq(length(b))[colSums(L) &gt; 0]
-##     }
-##     else w &lt;- length(Terms)
-##     if (is.null(H0)) 
-##         H0 &lt;- rep(0, w)
-##     if (w != length(H0)) 
-##         stop(&quot;Vectors of tested coefficients and of null hypothesis have different lengths\n&quot;)
-##     if (is.null(L)) {
-##         L &lt;- matrix(rep(0, length(b) * w), ncol = length(b))
-##         for (i in 1:w) L[i, Terms[i]] &lt;- 1
-##     }
-##     dimnames(L) &lt;- list(paste(&quot;L&quot;, as.character(seq(NROW(L))), 
-##         sep = &quot;&quot;), names(b))
-##     f &lt;- L %*% b
-##     V &lt;- Sigma
-##     mat &lt;- qr.solve(L %*% V %*% t(L))
-##     stat &lt;- t(f - H0) %*% mat %*% (f - H0)
-##     p &lt;- 1 - pchisq(stat, df = w)
-##     if (is.null(df)) 
-##         res &lt;- list(chi2 = c(chi2 = stat, df = w, P = p))
-##     else {
-##         fstat &lt;- stat/nrow(L)
-##         df1 &lt;- nrow(L)
-##         df2 &lt;- df
-##         res &lt;- list(chi2 = c(chi2 = stat, df = w, P = p), Ftest = c(Fstat = fstat, 
-##             df1 = df1, df2 = df2, P = 1 - pf(fstat, df1, df2)))
-##     }
-##     structure(list(Sigma = Sigma, b = b, Terms = Terms, H0 = H0, 
-##         L = L, result = res, verbose = verbose, df = df), class = &quot;wald.test&quot;)
-## }</code></pre>
-<pre class="r"><code>summary(lm(Y2 ~ X2))</code></pre>
+# OLS excluding X2 
+summary(lm(Y2 ~ X2))</code></pre>
 <pre><code>## 
 ## Call:
 ## lm(formula = Y2 ~ X2)
@@ -609,13 +500,69 @@ fval &lt;- t(f - H0) %*% qr.mat %*% (f - H0)</code></pre>
 ## Residual standard error: 2.649 on 3008 degrees of freedom
 ## Multiple R-squared:  0.02081,    Adjusted R-squared:  0.02048 
 ## F-statistic: 63.91 on 1 and 3008 DF,  p-value: 1.838e-15</code></pre>
-<pre class="r"><code>summary(aov(Y2 ~ X2))</code></pre>
-<pre><code>##               Df Sum Sq Mean Sq F value   Pr(&gt;F)    
-## X2             1    449   448.6   63.91 1.84e-15 ***
-## Residuals   3008  21113     7.0                     
-## ---
-## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</code></pre>
-<pre class="r"><code># summary(lm(Y2 ~ X1))
+<p><span class="math display">\[\mu^2 =
+\frac{\Pi^TZ^TZ\Pi}{\sigma^2_v}\]</span></p>
+<pre class="r"><code>mu2 &lt;- numeric(1)
+pi &lt;- as.matrix(iv1_sum$coefficients[2,1])
+z  &lt;- as.matrix(X2)
+sig2 &lt;- t(Y2 - z%*%pi)%*%(Y2 - z%*%pi)
+mu2 &lt;- (t(z%*%pi)%*%z%*%pi)/sig2
+mu2</code></pre>
+<pre><code>##              [,1]
+## [1,] 0.0004124858</code></pre>
+<p><span class="math display">\[\mu^2 \simeq G_T\]</span> <span class="math display">\[\begin{aligned}
+G_T &amp;=
+\frac{\hat\Sigma_{vv}^{-1/2T}Y^TP_ZY\hat\Sigma_{vv}^{-1/2T}}{K}\\
+\hat\Sigma_{vv} &amp;= \frac{Y^TM_ZY}{T-K}\\
+M_Z &amp;= I-P_Z\\
+P_Z &amp;= Z(Z^TZ)^{-1}Z^T
+\end{aligned}\]</span></p>
+<pre class="r"><code>Z  &lt;- as.matrix(X2)
+Pz &lt;- Z%*%solve(t(Z)%*%Z)%*%t(Z)
+Mz &lt;- diag(nrow(Pz)) - Pz
+Sig &lt;- (t(Y2)%*%Mz%*%Y2) / (nrow(Pz) - 1)
+Gt  &lt;- (t(Sig^(-0.5)))%*%t(Y2)%*%Pz%*%Y2%*%sqrt(1/Sig)/(1)
+Gt</code></pre>
+<pre><code>##          [,1]
+## [1,] 6443.737</code></pre>
+<pre class="r"><code># https://www.rdocumentation.org/packages/aod/versions/1.3.2/topics/wald.test
+library(aod)</code></pre>
+<pre><code>## 
+## Attaching package: &#39;aod&#39;</code></pre>
+<pre><code>## The following object is masked from &#39;package:survival&#39;:
+## 
+##     rats</code></pre>
+<pre class="r"><code>wald &lt;- wald.test(Sigma = vcov(iv1), b = coef(iv1), Terms = 2)
+wald$result$chi2[1]</code></pre>
+<pre><code>##     chi2 
+## 15.76666</code></pre>
+<pre class="r"><code># https://cran.r-project.org/web/packages/clubSandwich/vignettes/Wald-tests-in-clubSandwich.html
+library(clubSandwich)</code></pre>
+<pre><code>## Registered S3 method overwritten by &#39;clubSandwich&#39;:
+##   method    from    
+##   bread.mlm sandwich</code></pre>
+<pre class="r"><code>vcov &lt;- vcovCR(iv1, cluster = Y2, type = &quot;CR0&quot;)
+coef_test(iv1, vcov = vcov)</code></pre>
+<pre><code>##        Coef. Estimate     SE t-stat d.f. (Satt) p-val (Satt) Sig.
+##  (Intercept)  16.8307 1.0930  15.40        6.82      &lt; 0.001  ***
+##           X2   0.3273 0.1049   3.12        6.27      0.01945    *
+##          X11  -0.4044 0.0726  -5.57        9.06      &lt; 0.001  ***
+##          X12  -0.9475 0.1778  -5.33        6.67      0.00127   **
+##          X13  -0.2974 0.1680  -1.77        6.29      0.12496     
+##          X14  -0.0727 0.0347  -2.10        6.69      0.07596    .
+##          X15   0.4209 0.0745   5.65        6.27      0.00114   **</code></pre>
+<pre class="r"><code>trt &lt;- matrix(c(0,1,0,0,0,0,0), nrow = 1)
+trt</code></pre>
+<pre><code>##      [,1] [,2] [,3] [,4] [,5] [,6] [,7]
+## [1,]    0    1    0    0    0    0    0</code></pre>
+<pre class="r"><code>Wald_test(iv1, constraints = trt, vcov = vcov)</code></pre>
+<pre><code>##  test Fstat df_num df_denom  p_val sig
+##   HTZ  9.73      1     6.27 0.0194   *</code></pre>
+<pre class="r"><code># ZX &lt;- cbind(1,X2,X1)
+# solve(t(ZX)%*%ZX)%*%t(ZX)%*%Y2</code></pre>
+<pre class="r"><code># summary(aov(Y2 ~ X2))
+
+# summary(lm(Y2 ~ X1))
 # summary(lm(Y1 ~ Y2))
 # summary(lm(Y1 ~ X1))
 # summary(lm(Y1 ~ Y))</code></pre>
@@ -646,6 +593,98 @@ sum_iv_reg</code></pre>
 ## Residual standard error: 0.3843 on 2996 degrees of freedom
 ## Multiple R-Squared: 0.2513,  Adjusted R-squared: 0.2498 
 ## Wald test: 139.8 on 6 and 2996 DF,  p-value: &lt; 2.2e-16</code></pre>
+<pre class="r"><code>summary(ivreg(Y2 ~ X2))</code></pre>
+<pre><code>## 
+## Call:
+## ivreg(formula = Y2 ~ X2)
+## 
+## Residuals:
+##     Min      1Q  Median      3Q     Max 
+## -11.698  -1.527  -0.527   2.473   5.302 
+## 
+## Coefficients:
+##             Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept) 12.69801    0.08564 148.269  &lt; 2e-16 ***
+## X2           0.82902    0.10370   7.994 1.84e-15 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Residual standard error: 2.649 on 3008 degrees of freedom
+## Multiple R-Squared: 0.02081, Adjusted R-squared: 0.02048 
+## Wald test: 63.91 on 1 and 3008 DF,  p-value: 1.838e-15</code></pre>
+</div>
+<div id="wald-multiple-hypothesis" class="section level3">
+<h3>Wald Multiple Hypothesis</h3>
+<ul>
+<li>test multiple parameters as the same time</li>
+</ul>
+<p><span class="math display">\[\begin{aligned}
+H_0&amp;: \beta_1 = 1\ \&amp; \ \beta_2 = 0\\
+H_0&amp;: \beta_1 = 0\ \&amp; \ \beta_2 = 1
+\end{aligned}\]</span></p>
+<ul>
+<li><p>perform a series of simply hypothesis does not answer the
+question (joint distribution vs. two marginal distributions).</p></li>
+<li><p>The test statistic is based on a restriction written in matrix
+form.</p></li>
+</ul>
+<p><span class="math display">\[y=\beta_0+x_1\beta_1 + x_2\beta_2 +
+x_3\beta_3 + \epsilon\]</span></p>
+<p>Null hypothesis is <span class="math inline">\(H_0:\beta_1=0\)</span>
+&amp; <span class="math inline">\(\beta_2=0\)</span> can be rewritten as
+<span class="math inline">\(H_0:\textbf{R}\beta−\textbf{q}=0\)</span>
+where <span class="math inline">\(\textbf{R}\)</span> is a m x k matrix
+where m is the number of restrictions and k is the number of parameters.
+<span class="math inline">\(\textbf{q}\)</span> is a k x 1 vector <span class="math inline">\(\textbf{R}\)</span> “picks up” the relevant
+parameters while <span class="math inline">\(\textbf{q}\)</span> is a
+the null value of the parameter.</p>
+<p><span class="math display">\[\mathbf{R}=
+\left(
+\begin{array}{cccc}
+0 &amp; 1 &amp; 0 &amp; 0 \\
+0 &amp; 0 &amp; 1 &amp; 0 \\
+\end{array}
+\right),
+\mathbf{q} =
+\left(
+\begin{array}{c}
+0 \\
+0 \\
+\end{array}
+\right)
+\]</span></p>
+<p>Then test statistic for OLS estimator for a multiple hypothesis
+is</p>
+<p><span class="math display">\[F =
+\frac{(\mathbf{R\hat{\beta}-q})^T\hat{\Sigma}^{-1}(\mathbf{R\hat{\beta}-q})}{m}
+\sim^a F(m,n-k)
+\]</span></p>
+<p>where:<br />
+* <span class="math inline">\(Σ^{−1}\)</span> is the estimator for the
+asymptotic variance-covariance matrix<br />
+** if homoskedasticity holds, both the homoskedastic and heteroskedastic
+versions produce valid estimator<br />
+** If homoskedasticity does not hold, only the heteroskedastic version
+produces valid estimators.</p>
+<p><span class="math display">\[\begin{equation}
+\text{Homoskedasticity: } Var(\epsilon|x)=Var(\epsilon)=\sigma^2
+\end{equation}\]</span></p>
+<pre class="r"><code>Sigm &lt;- vcov(iv1)
+beta &lt;- coef(iv1)
+term &lt;- 2
+
+q &lt;- rep(0, length(term))
+R &lt;- matrix(rep(0, length(beta) * length(term)), 
+            ncol = length(beta))
+for (i in 1:length(term)) 
+  R[i, term[i]] &lt;- 1
+
+Rb &lt;- R %*% beta
+S  &lt;- solve(R %*% Sigm %*% t(R))
+fval &lt;- t(Rb - q) %*% S %*% (Rb - q)
+fval</code></pre>
+<pre><code>##          [,1]
+## [1,] 15.76666</code></pre>
 <pre class="r"><code>set.seed(1234)
 Nsample &lt;- 100
 m_x &lt;- 0; s_x &lt;- 10

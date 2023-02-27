@@ -5,10 +5,13 @@ library(ggplot2)
 library(ggpubr)
 library(gridExtra)
 library(rstan)
+library(ggfortify)
+library(Matrix)
+source("plotSSM.R")
 
 ## No relationship --------------------------------------------------------------
 # set rand 
-set.seed(1)
+set.seed(1234)
 m = 0  # mean
 v = 10 # variance
 Nsample <- 400 # sample size
@@ -28,6 +31,7 @@ scatter <-ggscatter(simData,x="x",y="y",
                     add.params = list(color = "blue", fill = "lightgray"),
                     conf.int = TRUE,cor.coef = TRUE) +
   ggtitle("No association")
+plot(scatter)
 
 # Linear Regression Analysis
 mod <- lm(y ~., data = simData) # fitted linear model 
@@ -44,6 +48,7 @@ simData_rw <- data.frame(x_rw = x_sim_rw,
 
 # ggplot(simData_rw, aes(x=x_rw)) + geom_histogram()
 # ggplot(simData_rw, aes(x=y_rw)) + geom_histogram()
+
 autoplot(ts(simData_rw[,c(1:2)])) # Time series
 ggplot(simData_rw, aes(x=x_rw,y=y_rw)) + geom_point() # 2D scatter plot
 sc_rw <- ggscatter(simData_rw,x="x_rw",y="y_rw", 
@@ -52,6 +57,7 @@ sc_rw <- ggscatter(simData_rw,x="x_rw",y="y_rw",
                    add.params = list(color = "blue", fill = "lightgray"),
                    conf.int = TRUE,cor.coef = TRUE) +
   ggtitle("No association?")
+plot(sc_rw)
 
 mod <- lm(y_rw ~ x_rw, data = simData_rw)
 summary(mod)
@@ -84,7 +90,9 @@ grid.arrange(scatter,sc_rw,ncol=2)
 Nsim <- 100 # Number of simulation runs
 pValues     <- numeric(Nsim) # Set vectors
 pValuesRW   <- numeric(Nsim) # Set vectors for random walk
-pValueARIMA <- numeric(Nsim) # Set vectors for ARIMA sim
+
+# pValues_rw  <- numeric(Nsim)
+# pValueARIMA <- numeric(Nsim) # Set vectors for ARIMA sim
 
 # Nsim times simulation data 
 for(i in 1:Nsim){ 
@@ -97,34 +105,43 @@ for(i in 1:Nsim){
   x_rw <- cumsum(rnorm(n=Nsample))
   
   # ARIMA simulation data
-  x_arima <- arima.sim(list(order=c(2,1,1), # ARIMA(2,1,1)
-                            ar=c(0.2,-0.1),
-                            ma=-0.1), n=Nsample) 
-  y_arima <- arima.sim(list(order=c(0,1,1), # ARIMA(0,1,1)
-                            ma=0.2), n=Nsample) 
+  # x_arima <- arima.sim(list(order=c(2,1,1), # ARIMA(2,1,1)
+  #                           ar=c(0.2,-0.1),
+  #                           ma=-0.1), n=Nsample) 
+  # y_arima <- arima.sim(list(order=c(0,1,1), # ARIMA(0,1,1)
+  #                           ma=0.2), n=Nsample) 
   
   
   mod       <- lm(y ~ x) # linear regression analysis
   mod_rw    <- lm(y_rw ~ x_rw) # linear regression analysis for rw
-  mod_arima <- lm(y_arima ~ x_arima) # linear regression analysis for arima
+  
+  # mod_x_rm  <- lm(y ~ x_rw)
+  # mod_arima <- lm(y_arima ~ x_arima) # linear regression analysis for arima
   
   # Save p-value
   pValues[i]     <- summary(mod)$coefficients[2,4]
   pValuesRW[i]   <- summary(mod_rw)$coefficients[2,4]
-  pValueARIMA[i] <- summary(mod_arima)$coefficients[2,4]
+  
+  # pValues_rw[i]  <- summary(mod_x_rm)$coefficients[2,4]
+  # pValueARIMA[i] <- summary(mod_arima)$coefficients[2,4]
 }
 
 # Combine data 
-simPresult <- data.frame(pValues = c(pValues, pValuesRW, pValueARIMA),
+simPresult <- data.frame(pValues = c(pValues, pValuesRW
+                                     # pValues_rw,
+                                     # pValueARIMA
+                                     ),
                          simPattern = rep(c("Regression", 
-                                            "Regression of RW",
-                                            "Regression of ARIMA"), 
+                                            "Regression of RW"
+                                            # "Regression of Half RW",
+                                            # "Regression of ARIMA"
+                                            ), 
                                           each = Nsim))
 
 # Histograms
 histPlot <- 
   ggplot(simPresult, aes(x = pValues, fill = simPattern)) + 
-  geom_histogram(alpha = 0.5, position = "identity", binwidth  = 0.1)+
+  geom_histogram(alpha = 0.5, position = "identity", binwidth  = 0.1) +
   ggtitle("100 simulations and p-value")
 plot(histPlot)
 
@@ -160,7 +177,7 @@ print(regOnTS_stan,
       probs = c(0.025, 0.5, 0.975))
 
 mcmc_sample <- rstan::extract(regOnTS_stan)
-source("plotSSM.R")
+
 p_all <- plotSSM(mcmc_sample = mcmc_sample, 
                  time_vec = simData_rw$date, 
                  obs_vec  = simData_rw$y_rw,

@@ -18,7 +18,7 @@ library(ggspectra)
 library(photobiology)
 library(ggfortify)
 library(forecast)
-library(tseries)
+#library(tseries)
 library(dplyr)
 library(lubridate)
 library(car)
@@ -85,24 +85,28 @@ isValidSheet(sheet)
 
 
 ```{r flw_calc_open__preprocessing}
-## remove apparatus weights
-# Create vectors for food loss and waste observations --------------------------
+## remove apparatus weights------------------------------------------------------
+# Bucket weight for food loss is 1 kg
+# Bucket and strainer weight is 1 + 0.3 kg
+###################################################
+# Create vectors for food loss and waste observations
 foodLossKg <- allWasteKg <- liquidWasteKg <- solidWasteKg <- numeric()
 
-# Bucket weight for food loss is 1 kg ------------------------------------------
+# Bucket weight for food loss is 1 kg
 for (val in sheet$fl)
-foodLossKg <- c(foodLossKg, ifelse(val == 0, val, val - 1))
+  foodLossKg <- c(foodLossKg, ifelse(val == 0, val, val - 1))
 
-# All food waste: Bucket and strainer weight is 1 kg + 0.3 kg ------------------
+# All food waste: Bucket and strainer weight is 1 kg + 0.3 kg
 for (val in sheet$slfw) 
-allWasteKg <- c(allWasteKg, ifelse(val == 0, val, val - 1.3))
+  allWasteKg <- c(allWasteKg, ifelse(val == 0, val, val - 1.3))
 
-# Liquid: Bucket and strainer weight is 1 kg + 0.3 kg --------------------------
+# Liquid: Bucket and strainer weight is 1 kg + 0.3 kg
 for (val in sheet$lfw) 
-liquidWasteKg <- c(liquidWasteKg, ifelse(val == 0, val, val - 1.3))
+  liquidWasteKg <- c(liquidWasteKg, ifelse(val == 0, val, val - 1.3))
 
-# Solid := all - liquid food waste ---------------------------------------------
+# Solid := all - liquid food waste
 solidWasteKg <- allWasteKg - liquidWasteKg
+
 # check negative values
 if(!(all((foodLossKg    >= 0)|
          (solidWasteKg  >= 0)|
@@ -110,11 +114,12 @@ if(!(all((foodLossKg    >= 0)|
          (solidWasteKg  >= 0) == TRUE)))
     print("Error: the date has negative values.")
 
-# Number of observations and closed day at the restaurant ----------------------
+# Number of observations and closed day at the restaurant
 open_days  <- sum(!sheet$isClose)
 close_days <- sum(sheet$isClose)
 obs_days   <- open_days + close_days
-
+if(!(nrow(sheet) == obs_days))
+  print("Error! Number of observations.")
 
 # Anomalies on weather condition variables: X - X_bar --------------------------
 # anomTempC    <- as.numeric(sheet$hrTM - mean(sheet$hrTM))
@@ -153,7 +158,7 @@ df <- data.frame(
 # all food waste = daily solid and liquid food waste
 # daily input food = one bowl weigh * (regular order + 1/2 mini orders)
 
-ONE_BOWL_KG = 1
+ONE_BOWL_KG = 0.9
 ONE_BOWL_SOUP_KG = 0.5
 
 dailyInputKg  = ONE_BOWL_KG * (df$regularOrders + df$miniOrders / 2)
@@ -261,13 +266,11 @@ data.frame(obs_days   = obs_days,
            open_days  = open_days,
            close_days = close_days)
 # basic summary for restaurant open only ---------------------------------------
-data.frame(food_loss_waste   = c(summary(dt$foodLossKg[!dt$isClose]+dt$allWasteKg[!dt$isClose])),
+data.frame(food_loss_waste   = c(summary(dt$foodLossKg[!dt$isClose]+
+                                           dt$allWasteKg[!dt$isClose])),
            food_waste_all    = c(summary(dt$allWasteKg[!dt$isClose])),
            food_waste_liquid = c(summary(dt$liquidWasteKg[!dt$isClose])),
            food_waste_solid  = c(summary(dt$solidWasteKg[!dt$isClose])))
-```
-```{r}
-
 ```
 
 
@@ -287,7 +290,7 @@ tsPlot <-
   xlab("Date") +
   ylab("Daily Food Loss and Waste (kg)") +
   ggtitle("Daily Food Loss and Waste Trend")
-tsPlot
+# tsPlot
 ```
 
 
@@ -305,12 +308,12 @@ tsPlot_waste <-
   xlab("Date") +
   ylab("Daily Food Waste (kg)") +
   ggtitle("Daily Food Waste Trend")
-tsPlot_waste
+# tsPlot_waste
+
+grid.arrange(tsPlot,tsPlot_waste)
 ```
 
 ```{r time_plot_waste_rate}
-
-
 # Time Series Plot on all food waste rate --------------------------------------
 tsWastePlot <- 
   ggplot() +
@@ -341,7 +344,7 @@ tsHiddenLossPlot <-
   xlab("Date") +
   ylab("Daily Food Loss Rate") +
   ggtitle("Daily Hidden Food Loss Rate Trend")
-tsHiddenLossPlot
+# tsHiddenLossPlot
 
 grid.arrange(tsWastePlot,tsHiddenLossPlot)
 ```
@@ -435,31 +438,31 @@ grid.arrange(hist_all_LossWasteKg,hist_all_LossKg,hist_allWasteKg)
 # hist_allWasteKg_dist
 ```
 ```{r X_histogram_all}
-# # Log transformed Histogram
-# hist_log_allWasteKg <- ggplot(data = dt, aes(x = log(allWasteKg))) +
-# geom_histogram(aes(y = ..density..), colour = 1, fill = "white") +
-# labs(title = "Liogged Daily Food Waste - Histogram")
-# hist_log_allWasteKg
-# 
-# kernel_hist_log_allWasteKg <- hist_log_allWasteKg +
-# geom_density(data = dt, 
-# mapping = aes(x = log(allWasteKg)), 
-# size = 1.5, colour = 4, fill = 4, alpha = 0.25) +
-# labs(title = "Logged Daily Food Waste - Histogram and Kernel Density Estimation")
-# kernel_hist_log_allWasteKg
+# Log transformed Histogram
+hist_log_allWasteKg <- ggplot(data = dt, aes(x = log(allWasteKg))) +
+geom_histogram(aes(y = ..density..), colour = 1, fill = "white") +
+labs(title = "Liogged Daily Food Waste - Histogram")
+hist_log_allWasteKg
 
-# # All Food Waste per Person transformed Histogram
-# hist_allWasteKg_cus <- ggplot(data = dt, aes(x = allWasteKg/customer)) +
-# geom_histogram(aes(y = ..density..), colour = 1, fill = "white") +
-# labs(title = "Daily Food Waste per Customer - Histogram")
-# hist_allWasteKg_cus
-# 
-# kernel_hist_allWasteKg_cus <- hist_allWasteKg_cus +
-# geom_density(data = dt, 
-# mapping = aes(x = allWasteKg/customer), 
-# size = 1.5, colour = 4, fill = 4, alpha = 0.25) +
-# labs(title = "Daily Food Waste per Customer - Histogram and Kernel Density Estimation")
-# kernel_hist_allWasteKg_cus
+kernel_hist_log_allWasteKg <- hist_log_allWasteKg +
+geom_density(data = dt,
+mapping = aes(x = log(allWasteKg)),
+size = 1.5, colour = 4, fill = 4, alpha = 0.25) +
+labs(title = "Logged Daily Food Waste - Histogram and Kernel Density Estimation")
+kernel_hist_log_allWasteKg
+
+# All Food Waste per Person transformed Histogram
+hist_allWasteKg_cus <- ggplot(data = dt, aes(x = allWasteKg/customer)) +
+geom_histogram(aes(y = ..density..), colour = 1, fill = "white") +
+labs(title = "Daily Food Waste per Customer - Histogram")
+hist_allWasteKg_cus
+
+kernel_hist_allWasteKg_cus <- hist_allWasteKg_cus +
+geom_density(data = dt,
+mapping = aes(x = allWasteKg/customer),
+size = 1.5, colour = 4, fill = 4, alpha = 0.25) +
+labs(title = "Daily Food Waste per Customer - Histogram and Kernel Density Estimation")
+kernel_hist_allWasteKg_cus
 ```
 
 ```{r histogram_liquid}
@@ -493,18 +496,18 @@ hist_log_liquid_waste <-
   labs(title = "Logged Daily Liquid Food Waste - Histogram and Kernel Density Estimation")
 hist_log_liquid_waste
 
-# # Liquid Food Waste per Person transformed Histogram
-# hist_liquidWasteKg_cus <- ggplot(data = dt, aes(x = liquidWasteKg/customer)) +
-# geom_histogram(aes(y = ..density..), colour = 1, fill = "white") +
-# labs(title = "Daily Liquid Food Waste per Customer - Histogram")
-# hist_liquidWasteKg_cus
-# 
-# kernel_hist_liquidWasteKg_cus <- hist_liquidWasteKg_cus +
-# geom_density(data = dt, 
-# mapping = aes(x = liquidWasteKg/customer), 
-# size = 1.5, colour = 4, fill = 4, alpha = 0.25) +
-# labs(title = "Daily Liquid Food Waste per Customer - Histogram and Kernel Density Estimation")
-# kernel_hist_liquidWasteKg_cus
+# Liquid Food Waste per Person transformed Histogram
+hist_liquidWasteKg_cus <- ggplot(data = dt, aes(x = liquidWasteKg/customer)) +
+geom_histogram(aes(y = ..density..), colour = 1, fill = "white") +
+labs(title = "Daily Liquid Food Waste per Customer - Histogram")
+hist_liquidWasteKg_cus
+
+kernel_hist_liquidWasteKg_cus <- hist_liquidWasteKg_cus +
+geom_density(data = dt,
+mapping = aes(x = liquidWasteKg/customer),
+size = 1.5, colour = 4, fill = 4, alpha = 0.25) +
+labs(title = "Daily Liquid Food Waste per Customer - Histogram and Kernel Density Estimation")
+kernel_hist_liquidWasteKg_cus
 ```
 
 
@@ -645,7 +648,7 @@ var.test(dt$allWasteKg[week_day_end==1],
 t.test(dt$allWasteKg[week_day_end==1], 
        dt$allWasteKg[week_day_end==-1], var.equal = FALSE)
 
-## Compare liquid Food Waste in Weekday and Weekend--------------------------------
+## Compare liquid Food Waste in Weekday and Weekend-----------------------------
 # F test (equal var)
 var.test(dt$liquidWasteKg[week_day_end==1], 
          dt$liquidWasteKg[week_day_end==-1],alternative = "two.sided")
@@ -653,7 +656,7 @@ var.test(dt$liquidWasteKg[week_day_end==1],
 t.test(dt$liquidWasteKg[week_day_end==1], 
        dt$liquidWasteKg[week_day_end==-1], var.equal = FALSE)
 
-## Compare solid Food Waste in Weekday and Weekend--------------------------------
+## Compare solid Food Waste in Weekday and Weekend------------------------------
 # F test (equal var)
 var.test(dt$solidWasteKg[week_day_end==1], 
          dt$solidWasteKg[week_day_end==-1],alternative = "two.sided")
