@@ -33,13 +33,21 @@ isValidSheet <- function(sheet = sheet){
   }
   
   # Check if weather conditions (temperature) is between -50 to 50
-  if(!(all(between(sheet$tMax|sheet$tMin|sheet$hrTM|sheet$mmTM,-50,50)))){
+  if(!(all(dplyr::between(sheet$tMax|sheet$tMin|sheet$hrTM|sheet$mmTM,-50,50)))){
     isValid <- !isValid
     print("The date retrieved sheet has negative values.")
   }
+  # # Check if weather conditions (temperature) is between -50 to 50
+  # if(!(all(between(sheet$tMax,-50,50)|
+  #          between(sheet$tMin,-50,50)|
+  #          between(sheet$hrTM,-50,50)|
+  #          between(sheet$mmTM,-50,50)))){
+  #   isValid <- !isValid
+  #   print("The date retrieved sheet has negative values.")
+  # }
   
   # Check if weather conditions (humiditiy) is between 0 to 100
-  if(!(all(between(sheet$humMax|sheet$humMin|sheet$hrHM|sheet$mmHM,0,100)))){
+  if(!(all(dplyr::between(sheet$humMax|sheet$humMin|sheet$hrHM|sheet$mmHM,0,100)))){
     isValid <- !isValid
     print("The humidity date is not percentage.")
   }

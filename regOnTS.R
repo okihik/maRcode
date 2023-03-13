@@ -11,7 +11,7 @@ source("plotSSM.R")
 
 ## No relationship --------------------------------------------------------------
 # set rand 
-set.seed(1234)
+set.seed(1)
 m = 0  # mean
 v = 10 # variance
 Nsample <- 400 # sample size
@@ -92,7 +92,7 @@ pValues     <- numeric(Nsim) # Set vectors
 pValuesRW   <- numeric(Nsim) # Set vectors for random walk
 
 # pValues_rw  <- numeric(Nsim)
-# pValueARIMA <- numeric(Nsim) # Set vectors for ARIMA sim
+pValueARIMA <- numeric(Nsim) # Set vectors for ARIMA sim
 
 # Nsim times simulation data 
 for(i in 1:Nsim){ 
@@ -105,36 +105,36 @@ for(i in 1:Nsim){
   x_rw <- cumsum(rnorm(n=Nsample))
   
   # ARIMA simulation data
-  # x_arima <- arima.sim(list(order=c(2,1,1), # ARIMA(2,1,1)
-  #                           ar=c(0.2,-0.1),
-  #                           ma=-0.1), n=Nsample) 
-  # y_arima <- arima.sim(list(order=c(0,1,1), # ARIMA(0,1,1)
-  #                           ma=0.2), n=Nsample) 
-  
+  x_arima <- arima.sim(list(order=c(2,1,1), # ARIMA(2,1,1)
+                            ar=c(0.2,-0.1),
+                            ma=-0.1), n=Nsample)
+  y_arima <- arima.sim(list(order=c(0,1,1), # ARIMA(0,1,1)
+                            ma=0.2), n=Nsample)
+
   
   mod       <- lm(y ~ x) # linear regression analysis
   mod_rw    <- lm(y_rw ~ x_rw) # linear regression analysis for rw
   
   # mod_x_rm  <- lm(y ~ x_rw)
-  # mod_arima <- lm(y_arima ~ x_arima) # linear regression analysis for arima
+  mod_arima <- lm(y_arima ~ x_arima) # linear regression analysis for arima
   
   # Save p-value
   pValues[i]     <- summary(mod)$coefficients[2,4]
   pValuesRW[i]   <- summary(mod_rw)$coefficients[2,4]
   
   # pValues_rw[i]  <- summary(mod_x_rm)$coefficients[2,4]
-  # pValueARIMA[i] <- summary(mod_arima)$coefficients[2,4]
+  pValueARIMA[i] <- summary(mod_arima)$coefficients[2,4]
 }
 
 # Combine data 
-simPresult <- data.frame(pValues = c(pValues, pValuesRW
+simPresult <- data.frame(pValues = c(pValues, pValuesRW,
                                      # pValues_rw,
-                                     # pValueARIMA
+                                     pValueARIMA
                                      ),
                          simPattern = rep(c("Regression", 
-                                            "Regression of RW"
+                                            "Regression of RW",
                                             # "Regression of Half RW",
-                                            # "Regression of ARIMA"
+                                            "Regression of ARIMA"
                                             ), 
                                           each = Nsim))
 

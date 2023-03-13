@@ -18,7 +18,7 @@ library(ggspectra)
 library(photobiology)
 library(ggfortify)
 library(forecast)
-#library(tseries)
+library(tseries)
 library(dplyr)
 library(lubridate)
 library(car)
@@ -27,6 +27,7 @@ library(dplyr)
 library(broom)
 library(MASS) # boxcox transformation
 library(patchwork)
+
 
 # Library for linear regression model
 library(forecast)
@@ -1492,7 +1493,7 @@ adf.test(dt$allWasteKg, alternative = "explosive")
 # Spectral Analysis
 ```{r spec_all}
 # ------------------------------------------------------------------------------
-plot.spectrum(dt$allWasteKg)
+# plot.spectrum(dt$allWasteKg)
 raw.spec <- list(spec.pgram(dt$allWasteKg, spans = 5))
 1/raw.spec[[1]]$freq[which.max(raw.spec[[1]]$spec)]
 ```
@@ -1515,11 +1516,11 @@ PP.test(dt$solidWasteKg)
 adf.test(dt$solidWasteKg)
 adf.test(dt$solidWasteKg, alternative = "explosive")
 
-plot.spectrum(dt$liquidWasteKg)
+# plot.spectrum(dt$liquidWasteKg)
 raw.spec <- list(spec.pgram(dt$liquidWasteKg, spans = 5))
 1/raw.spec[[1]]$freq[which.max(raw.spec[[1]]$spec)]
 
-plot.spectrum(dt$solidWasteKg)
+# plot.spectrum(dt$solidWasteKg)
 raw.spec <- list(spec.pgram(dt$solidWasteKg, spans = 5))
 1/raw.spec[[1]]$freq[which.max(raw.spec[[1]]$spec)]
 
