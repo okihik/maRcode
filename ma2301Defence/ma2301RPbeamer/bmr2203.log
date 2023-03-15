@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.24 (TeX Live 2022) (preloaded format=pdflatex 2023.3.8)  12 MAR 2023 14:29
+This is pdfTeX, Version 3.141592653-2.6-1.40.24 (TeX Live 2022) (preloaded format=pdflatex 2023.3.8)  14 MAR 2023 18:12
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1179,7 +1179,7 @@ Package caption Info: Begin \AtBeginDocument code.
 Package caption Info: subfig package v1.3 is loaded.
 Package caption Info: End \AtBeginDocument code.
 (./bmr2203.nav)
-<logo_black.png, id=81, 85.83247pt x 14.79544pt>
+<logo_black.png, id=77, 85.83247pt x 14.79544pt>
 File: logo_black.png Graphic file (type png)
 <use logo_black.png>
 Package pdftex.def Info: logo_black.png  used on input line 80.
@@ -1206,12 +1206,12 @@ Package pdftex.def Info: logo_black.png  used on input line 99.
 [2
 
 ] (./bmr2203.toc)
-<ramen1.jpg, id=194, 4047.12pt x 3035.34pt>
+<ramen1.jpg, id=187, 4047.12pt x 3035.34pt>
 File: ramen1.jpg Graphic file (type jpg)
 <use ramen1.jpg>
 Package pdftex.def Info: ramen1.jpg  used on input line 114.
 (pdftex.def)             Requested size: 87.83463pt x 65.86063pt.
-<ramen2.jpg, id=195, 4047.12pt x 3035.34pt>
+<ramen2.jpg, id=188, 4047.12pt x 3035.34pt>
 File: ramen2.jpg Graphic file (type jpg)
 <use ramen2.jpg>
 Package pdftex.def Info: ramen2.jpg  used on input line 114.
@@ -1253,238 +1253,227 @@ Package pdftex.def Info: logo_black.png  used on input line 165.
 [6
 
 ]
-File: logo_black.png Graphic file (type png)
-<use logo_black.png>
-Package pdftex.def Info: logo_black.png  used on input line 197.
-(pdftex.def)             Requested size: 42.67912pt x 7.35683pt.
-[7
-
-]
-<defnFLW.png, id=430, 963.6pt x 542.025pt>
+<defnFLW.png, id=371, 963.6pt x 542.025pt>
 File: defnFLW.png Graphic file (type png)
 <use defnFLW.png>
-Package pdftex.def Info: defnFLW.png  used on input line 215.
+Package pdftex.def Info: defnFLW.png  used on input line 217.
 (pdftex.def)             Requested size: 195.17204pt x 109.78427pt.
 File: logo_black.png Graphic file (type png)
 <use logo_black.png>
-Package pdftex.def Info: logo_black.png  used on input line 215.
+Package pdftex.def Info: logo_black.png  used on input line 217.
 (pdftex.def)             Requested size: 42.67912pt x 7.35683pt.
-[8
+[7
 
  <./defnFLW.png>]
 File: logo_black.png Graphic file (type png)
 <use logo_black.png>
-Package pdftex.def Info: logo_black.png  used on input line 232.
+Package pdftex.def Info: logo_black.png  used on input line 234.
 (pdftex.def)             Requested size: 42.67912pt x 7.35683pt.
-[9
+[8
 
 ]
-<defnFLWrest.png, id=515, 963.6pt x 542.025pt>
+<defnFLWrest.png, id=456, 963.6pt x 542.025pt>
 File: defnFLWrest.png Graphic file (type png)
 <use defnFLWrest.png>
-Package pdftex.def Info: defnFLWrest.png  used on input line 251.
+Package pdftex.def Info: defnFLWrest.png  used on input line 253.
 (pdftex.def)             Requested size: 195.17204pt x 109.78427pt.
 File: logo_black.png Graphic file (type png)
 <use logo_black.png>
-Package pdftex.def Info: logo_black.png  used on input line 251.
+Package pdftex.def Info: logo_black.png  used on input line 253.
 (pdftex.def)             Requested size: 42.67912pt x 7.35683pt.
-[10
+[9
 
  <./defnFLWrest.png>]
 File: logo_black.png Graphic file (type png)
 <use logo_black.png>
-Package pdftex.def Info: logo_black.png  used on input line 279.
+Package pdftex.def Info: logo_black.png  used on input line 281.
+(pdftex.def)             Requested size: 42.67912pt x 7.35683pt.
+[10
+
+]
+File: logo_black.png Graphic file (type png)
+<use logo_black.png>
+Package pdftex.def Info: logo_black.png  used on input line 306.
 (pdftex.def)             Requested size: 42.67912pt x 7.35683pt.
 [11
 
 ]
 File: logo_black.png Graphic file (type png)
 <use logo_black.png>
-Package pdftex.def Info: logo_black.png  used on input line 304.
+Package pdftex.def Info: logo_black.png  used on input line 318.
 (pdftex.def)             Requested size: 42.67912pt x 7.35683pt.
 [12
 
 ]
+Overfull \hbox (2.24356pt too wide) in paragraph at lines 337--337
+[]$[]$[][]  
+ []
+
+LaTeX Font Info:    Trying to load font information for OMS+cmss on input line 337.
+LaTeX Font Info:    No file OMScmss.fd. on input line 337.
+
+LaTeX Font Warning: Font shape `OMS/cmss/m/n' undefined
+(Font)              using `OMS/cmsy/m/n' instead
+(Font)              for symbol `textbraceleft' on input line 337.
+
 File: logo_black.png Graphic file (type png)
 <use logo_black.png>
-Package pdftex.def Info: logo_black.png  used on input line 316.
+Package pdftex.def Info: logo_black.png  used on input line 337.
 (pdftex.def)             Requested size: 42.67912pt x 7.35683pt.
 [13
 
 ]
-Overfull \hbox (2.24356pt too wide) in paragraph at lines 335--335
-[]$[]$[][]  
- []
-
-LaTeX Font Info:    Trying to load font information for OMS+cmss on input line 335.
-LaTeX Font Info:    No file OMScmss.fd. on input line 335.
-
-LaTeX Font Warning: Font shape `OMS/cmss/m/n' undefined
-(Font)              using `OMS/cmsy/m/n' instead
-(Font)              for symbol `textbraceleft' on input line 335.
-
 File: logo_black.png Graphic file (type png)
 <use logo_black.png>
-Package pdftex.def Info: logo_black.png  used on input line 335.
+Package pdftex.def Info: logo_black.png  used on input line 417.
 (pdftex.def)             Requested size: 42.67912pt x 7.35683pt.
 [14
 
 ]
 File: logo_black.png Graphic file (type png)
 <use logo_black.png>
-Package pdftex.def Info: logo_black.png  used on input line 415.
+Package pdftex.def Info: logo_black.png  used on input line 433.
 (pdftex.def)             Requested size: 42.67912pt x 7.35683pt.
 [15
 
 ]
+<ramen.jpg, id=747, 4047.12pt x 3035.34pt>
+File: ramen.jpg Graphic file (type jpg)
+<use ramen.jpg>
+Package pdftex.def Info: ramen.jpg  used on input line 463.
+(pdftex.def)             Requested size: 71.13188pt x 53.30913pt.
+<sendoMap.png, id=748, 838.13126pt x 817.0525pt>
+File: sendoMap.png Graphic file (type png)
+<use sendoMap.png>
+Package pdftex.def Info: sendoMap.png  used on input line 463.
+(pdftex.def)             Requested size: 56.9055pt x 55.46657pt.
 File: logo_black.png Graphic file (type png)
 <use logo_black.png>
-Package pdftex.def Info: logo_black.png  used on input line 431.
+Package pdftex.def Info: logo_black.png  used on input line 463.
 (pdftex.def)             Requested size: 42.67912pt x 7.35683pt.
 [16
 
-]
-<ramen.jpg, id=812, 4047.12pt x 3035.34pt>
-File: ramen.jpg Graphic file (type jpg)
-<use ramen.jpg>
-Package pdftex.def Info: ramen.jpg  used on input line 461.
-(pdftex.def)             Requested size: 71.13188pt x 53.30913pt.
-<sendoMap.png, id=813, 838.13126pt x 817.0525pt>
-File: sendoMap.png Graphic file (type png)
-<use sendoMap.png>
-Package pdftex.def Info: sendoMap.png  used on input line 461.
-(pdftex.def)             Requested size: 56.9055pt x 55.46657pt.
-
-Overfull \vbox (12.07312pt too high) detected at line 461
- []
-
-File: logo_black.png Graphic file (type png)
-<use logo_black.png>
-Package pdftex.def Info: logo_black.png  used on input line 461.
-(pdftex.def)             Requested size: 42.67912pt x 7.35683pt.
-[17
-
  <./ramen.jpg> <./sendoMap.png>]
-<busket.jpg, id=858, 2489.3pt x 3048.38875pt>
+<busket.jpg, id=792, 2489.3pt x 3048.38875pt>
 File: busket.jpg Graphic file (type jpg)
 <use busket.jpg>
-Package pdftex.def Info: busket.jpg  used on input line 491.
+Package pdftex.def Info: busket.jpg  used on input line 493.
 (pdftex.def)             Requested size: 48.36958pt x 59.21309pt.
-<busketStrainer.jpg, id=859, 2570.60374pt x 2737.22626pt>
+<busketStrainer.jpg, id=793, 2570.60374pt x 2737.22626pt>
 File: busketStrainer.jpg Graphic file (type jpg)
 <use busketStrainer.jpg>
-Package pdftex.def Info: busketStrainer.jpg  used on input line 491.
+Package pdftex.def Info: busketStrainer.jpg  used on input line 493.
 (pdftex.def)             Requested size: 51.21504pt x 54.50548pt.
-<fl.jpg, id=860, 4047.12pt x 3035.34pt>
+<fl.jpg, id=794, 4047.12pt x 3035.34pt>
 File: fl.jpg Graphic file (type jpg)
 <use fl.jpg>
-Package pdftex.def Info: fl.jpg  used on input line 491.
+Package pdftex.def Info: fl.jpg  used on input line 493.
 (pdftex.def)             Requested size: 48.36958pt x 36.26503pt.
-<leftovers.jpg, id=861, 4047.12pt x 3035.34pt>
+<leftovers.jpg, id=795, 4047.12pt x 3035.34pt>
 File: leftovers.jpg Graphic file (type jpg)
 <use leftovers.jpg>
-Package pdftex.def Info: leftovers.jpg  used on input line 491.
+Package pdftex.def Info: leftovers.jpg  used on input line 493.
 (pdftex.def)             Requested size: 51.21504pt x 38.39554pt.
-<scale.jpg, id=862, 4047.12pt x 3035.34pt>
+<scale.jpg, id=796, 4047.12pt x 3035.34pt>
 File: scale.jpg Graphic file (type jpg)
 <use scale.jpg>
-Package pdftex.def Info: scale.jpg  used on input line 491.
+Package pdftex.def Info: scale.jpg  used on input line 493.
 (pdftex.def)             Requested size: 48.36958pt x 36.26503pt.
-<notebookPen.jpg, id=863, 3632.57124pt x 2370.8575pt>
+<notebookPen.jpg, id=797, 3632.57124pt x 2370.8575pt>
 File: notebookPen.jpg Graphic file (type jpg)
 <use notebookPen.jpg>
-Package pdftex.def Info: notebookPen.jpg  used on input line 491.
+Package pdftex.def Info: notebookPen.jpg  used on input line 493.
 (pdftex.def)             Requested size: 48.36958pt x 31.54575pt.
 File: logo_black.png Graphic file (type png)
 <use logo_black.png>
-Package pdftex.def Info: logo_black.png  used on input line 491.
+Package pdftex.def Info: logo_black.png  used on input line 493.
 (pdftex.def)             Requested size: 42.67912pt x 7.35683pt.
-[18
+[17
 
  <./busket.jpg> <./busketStrainer.jpg> <./fl.jpg> <./leftovers.jpg> <./scale.jpg> <./notebookPen.jpg>]
 File: logo_black.png Graphic file (type png)
 <use logo_black.png>
-Package pdftex.def Info: logo_black.png  used on input line 535.
+Package pdftex.def Info: logo_black.png  used on input line 537.
+(pdftex.def)             Requested size: 42.67912pt x 7.35683pt.
+[18
+
+]
+
+LaTeX Font Warning: Command \small invalid in math mode on input line 567.
+
+
+LaTeX Font Warning: Command \small invalid in math mode on input line 567.
+
+
+LaTeX Font Warning: Command \small invalid in math mode on input line 567.
+
+
+LaTeX Font Warning: Command \small invalid in math mode on input line 567.
+
+
+LaTeX Font Warning: Command \small invalid in math mode on input line 567.
+
+File: logo_black.png Graphic file (type png)
+<use logo_black.png>
+Package pdftex.def Info: logo_black.png  used on input line 567.
 (pdftex.def)             Requested size: 42.67912pt x 7.35683pt.
 [19
 
 ]
-
-LaTeX Font Warning: Command \small invalid in math mode on input line 565.
-
-
-LaTeX Font Warning: Command \small invalid in math mode on input line 565.
-
-
-LaTeX Font Warning: Command \small invalid in math mode on input line 565.
-
-
-LaTeX Font Warning: Command \small invalid in math mode on input line 565.
-
-
-LaTeX Font Warning: Command \small invalid in math mode on input line 565.
-
 File: logo_black.png Graphic file (type png)
 <use logo_black.png>
-Package pdftex.def Info: logo_black.png  used on input line 565.
+Package pdftex.def Info: logo_black.png  used on input line 583.
 (pdftex.def)             Requested size: 42.67912pt x 7.35683pt.
 [20
 
 ]
-File: logo_black.png Graphic file (type png)
-<use logo_black.png>
-Package pdftex.def Info: logo_black.png  used on input line 580.
-(pdftex.def)             Requested size: 42.67912pt x 7.35683pt.
-[21
-
-]
-<weekFW.png, id=1035, 1405.25pt x 868.24374pt>
+<weekFW.png, id=965, 1405.25pt x 868.24374pt>
 File: weekFW.png Graphic file (type png)
 <use weekFW.png>
-Package pdftex.def Info: weekFW.png  used on input line 605.
+Package pdftex.def Info: weekFW.png  used on input line 608.
 (pdftex.def)             Requested size: 62.59596pt x 38.67183pt.
-<tsFLW.png, id=1036, 1405.25pt x 868.24374pt>
+<tsFLW.png, id=966, 1405.25pt x 868.24374pt>
 File: tsFLW.png Graphic file (type png)
 <use tsFLW.png>
-Package pdftex.def Info: tsFLW.png  used on input line 605.
+Package pdftex.def Info: tsFLW.png  used on input line 608.
 (pdftex.def)             Requested size: 71.13188pt x 43.94466pt.
 File: logo_black.png Graphic file (type png)
 <use logo_black.png>
-Package pdftex.def Info: logo_black.png  used on input line 605.
+Package pdftex.def Info: logo_black.png  used on input line 608.
 (pdftex.def)             Requested size: 42.67912pt x 7.35683pt.
-[22
+[21
 
  <./weekFW.png> <./tsFLW.png>]
 File: logo_black.png Graphic file (type png)
 <use logo_black.png>
-Package pdftex.def Info: logo_black.png  used on input line 623.
+Package pdftex.def Info: logo_black.png  used on input line 626.
+(pdftex.def)             Requested size: 42.67912pt x 7.35683pt.
+[22
+
+]
+File: logo_black.png Graphic file (type png)
+<use logo_black.png>
+Package pdftex.def Info: logo_black.png  used on input line 632.
 (pdftex.def)             Requested size: 42.67912pt x 7.35683pt.
 [23
 
 ]
 File: logo_black.png Graphic file (type png)
 <use logo_black.png>
-Package pdftex.def Info: logo_black.png  used on input line 629.
+Package pdftex.def Info: logo_black.png  used on input line 639.
 (pdftex.def)             Requested size: 42.67912pt x 7.35683pt.
 [24
 
 ]
-File: logo_black.png Graphic file (type png)
-<use logo_black.png>
-Package pdftex.def Info: logo_black.png  used on input line 635.
-(pdftex.def)             Requested size: 42.67912pt x 7.35683pt.
-[25
-
-]
 
 LaTeX Font Warning: Font shape `OT1/cmss/m/sc' in size <6> not available
-(Font)              Font shape `OT1/cmr/m/sc' tried instead on input line 641.
+(Font)              Font shape `OT1/cmr/m/sc' tried instead on input line 644.
 
 File: logo_black.png Graphic file (type png)
 <use logo_black.png>
-Package pdftex.def Info: logo_black.png  used on input line 641.
+Package pdftex.def Info: logo_black.png  used on input line 644.
 (pdftex.def)             Requested size: 42.67912pt x 7.35683pt.
-[26
+[25
 
 ]
 \tf@nav=\write7
@@ -1501,24 +1490,24 @@ Package pdftex.def Info: logo_black.png  used on input line 641.
 LaTeX Font Warning: Some font shapes were not available, defaults substituted.
 
 Package rerunfilecheck Info: File `bmr2203.out' has not changed.
-(rerunfilecheck)             Checksum: BA082A3AA13F7832121FC70D4BC09C93;1977.
+(rerunfilecheck)             Checksum: FD69CAD75315436B96E26743DB76E3E6;1883.
 Package logreq Info: Writing requests to 'bmr2203.run.xml'.
 \openout1 = `bmr2203.run.xml'.
 
  ) 
 Here is how much of TeX's memory you used:
- 37419 strings out of 477984
- 751117 string characters out of 5838808
- 1876388 words of memory out of 5000000
- 56858 multiletter control sequences out of 15000+600000
+ 37374 strings out of 477984
+ 750095 string characters out of 5838808
+ 1874388 words of memory out of 5000000
+ 56817 multiletter control sequences out of 15000+600000
  525278 words of font info for 79 fonts, out of 8000000 for 9000
  14 hyphenation exceptions out of 8191
- 101i,20n,133p,1984b,1520s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 101i,20n,133p,1984b,1524s stack positions out of 10000i,1000n,20000p,200000b,200000s
  </Users/am/Library/TinyTeX/texmf-var/fonts/pk/ljfour/jknappen/ec/tcss1095.600pk></Users/am/Library/TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmcsc10.pfb></Users/am/Library/TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb></Users/am/Library/TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi7.pfb></Users/am/Library/TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmss10.pfb></Users/am/Library/TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmss12.pfb></Users/am/Library/TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmss8.pfb></Users/am/Library/TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmss9.pfb></Users/am/Library/TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmssbx10.pfb></Users/am/Library/TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmssi10.pfb></Users/am/Library/TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmssi8.pfb></Users/am/Library/TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb></Users/am/Library/TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmtt8.pfb></Users/am/Library/TinyTeX/texmf-dist/fonts/type1/public/amsfonts/symbols/msam10.pfb>
-Output written on bmr2203.pdf (26 pages, 17345571 bytes).
+Output written on bmr2203.pdf (25 pages, 17341560 bytes).
 PDF statistics:
- 1334 PDF objects out of 1440 (max. 8388607)
- 1242 compressed objects within 13 object streams
- 81 named destinations out of 1000 (max. 500000)
- 254 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 1258 PDF objects out of 1440 (max. 8388607)
+ 1168 compressed objects within 12 object streams
+ 77 named destinations out of 1000 (max. 500000)
+ 246 words of extra memory for PDF output out of 10000 (max. 10000000)
 

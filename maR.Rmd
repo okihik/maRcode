@@ -56,12 +56,18 @@ source("center_matrix.R", encoding = "utf-8")
 # Data Retrieval and Preprocessing
 ```{r data_import}
 # Retrieve data from Google sheet ----------------------------------------------
+# sheet <- read_sheet(
+# "https://docs.google.com/spreadsheets/d/1K7VRu80v6qy1qhHgJqL9MrtPOsLaZbtBiMPRwuxgf9c/edit#gid=0",
+# col_names = TRUE,
+# col_types = "Dldddiiiididdddiiiid",
+# range = "sh1!A1:T143"
+# )
+
 sheet <- read_sheet(
-"https://docs.google.com/spreadsheets/d/1K7VRu80v6qy1qhHgJqL9MrtPOsLaZbtBiMPRwuxgf9c/edit#gid=0",
-col_names = TRUE,
-col_types = "Dldddiiiididdddiiiid",
-range = "sh1!A1:T143"
-)
+  "https://docs.google.com/spreadsheets/d/1K7VRu80v6qy1qhHgJqL9MrtPOsLaZbtBiMPRwuxgf9c/edit?usp=sharing",
+                  col_names = TRUE,
+                  col_types = "Dldddiiiidi",
+                  range = "gs1!A1:K170")
 ```
 
 ```{r na.omit_sheet}
